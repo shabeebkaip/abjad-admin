@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "Abjad Admin – Sign In",
 };
-
-const STATS = [
-  { value: "12k+", label: "Teachers placed" },
-  { value: "800+", label: "Partner schools" },
-  { value: "100%", label: "Verified data" },
-];
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -48,15 +43,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Content */}
         <div className="relative z-10 flex flex-col h-full px-14 py-14">
           {/* Logo */}
-          <div className="w-fit">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/ABJAD.png"
-              alt="Abjad"
-              className="h-10 w-auto object-contain"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-          </div>
+          <Image
+            src="/ABJAD.png"
+            alt="Abjad"
+            width={140}
+            height={42}
+            className="h-10 w-auto object-contain self-start"
+            priority
+          />
 
           {/* Centre copy */}
           <div className="flex-1 flex flex-col justify-center max-w-xs">
@@ -73,19 +67,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               Console
             </h1>
 
-            <p className="text-sm leading-relaxed mb-12" style={{ color: "rgba(255,255,255,0.45)" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
               Secure access to the Abjad admin panel. Manage teachers, schools, and platform operations across Saudi Arabia.
             </p>
-
-            {/* Stats */}
-            <div className="flex items-center gap-8">
-              {STATS.map((s) => (
-                <div key={s.label}>
-                  <p className="text-2xl font-bold text-white tracking-tight">{s.value}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.40)" }}>{s.label}</p>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Bottom note */}
@@ -133,7 +117,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             src="/ABJAD.png"
             alt="Abjad"
             className="h-8 w-auto object-contain"
-            style={{ filter: "brightness(0)" }}
           />
         </div>
 
