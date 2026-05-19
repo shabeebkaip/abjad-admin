@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { clearToken } from "@/lib/api-client";
 import {
   LayoutDashboard,
   GraduationCap,
@@ -78,9 +79,8 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  async function handleLogout() {
-    const { logout } = await import("@/lib/api/auth");
-    await logout();
+  function handleLogout() {
+    clearToken();
     router.push("/login");
   }
 
@@ -195,7 +195,7 @@ export function AppSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  onSelect={handleLogout}
+                  onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign out
