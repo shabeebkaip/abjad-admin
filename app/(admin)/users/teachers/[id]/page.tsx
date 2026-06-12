@@ -17,9 +17,12 @@ import {
 import {
   ArrowLeft, CheckCircle2, XCircle, GraduationCap, BookOpen,
   MapPin, Briefcase, Globe, FileText, Award, AlertCircle, Loader2,
-  User, Calendar, Trash2, Activity,
+  User, Calendar, Trash2, Activity, History, AlertTriangle,
 } from "lucide-react";
-import { getTeacher, approveTeacher, rejectTeacher, deleteTeacher, getTeacherActivity } from "@/lib/api/admin";
+import {
+  getTeacher, approveTeacher, rejectTeacher, deleteTeacher,
+  getTeacherActivity, getTeacherHistory, type ProfileChangeLogEntry,
+} from "@/lib/api/admin";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TeacherProfile, TeacherActivity } from "@/lib/types";
 
@@ -120,6 +123,69 @@ function TabCount({ n }: { n: number | undefined }) {
   );
 }
 
+// ── Profile History (SRD 2.2.10) ──────────────────────────
+
+const sectionLabel: Record<ProfileChangeLogEntry["section"], string> = {
+  personal: "Personal Info",
+  professional: "Professional Info",
+  education: "Education",
+  certifications: "Certifications",
+  languages: "Languages",
+  locationPreferences: "Location Preferences",
+  salaryExpectations: "Salary Expectations",
+  resume: "CV / Resume",
+  photo: "Profile Photo",
+};
+
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (Array.isArray(v)) return v.length === 0 ? "[empty]" : v.map(String).join(", ");
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+function HistoryEntry({ entry }: { entry: ProfileChangeLogEntry }) {
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${
+      entry.triggeredReApproval
+        ? "border-amber-200 bg-amber-50/40"
+        : "border-slate-100 bg-slate-50/40"
+    }`}>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <History className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          <p className="text-sm font-semibold text-slate-800 truncate">
+            {sectionLabel[entry.section] ?? entry.section}
+          </p>
+          {entry.isMajor && (
+            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 shrink-0">
+              Major
+            </Badge>
+          )}
+          {entry.triggeredReApproval && (
+            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 shrink-0">
+              <AlertTriangle className="h-2.5 w-2.5 mr-1" /> Re-approval triggered
+            </Badge>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-400 shrink-0">
+          {new Date(entry.createdAt).toLocaleString("en-SA")}
+        </p>
+      </div>
+      <ul className="space-y-1 ml-5">
+        {entry.changes.map((c, i) => (
+          <li key={i} className="text-xs text-slate-600 flex items-baseline gap-2">
+            <span className="font-medium text-slate-700">{c.field}:</span>
+            <span className="text-slate-400 line-through">{formatValue(c.oldValue)}</span>
+            <span className="text-slate-400">→</span>
+            <span className="text-slate-700">{formatValue(c.newValue)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────
 
 export default function TeacherProfilePage() {
@@ -139,6 +205,9 @@ export default function TeacherProfilePage() {
   const [activity, setActivity] = useState<TeacherActivity | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
 
+  const [history, setHistory] = useState<ProfileChangeLogEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
   useEffect(() => {
     setLoading(true);
     getTeacher(id)
@@ -153,6 +222,14 @@ export default function TeacherProfilePage() {
       .then(setActivity)
       .catch(() => {})
       .finally(() => setActivityLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    setHistoryLoading(true);
+    getTeacherHistory(id, 1, 50)
+      .then((r) => setHistory(r.items))
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
   }, [id]);
 
   function handleApprove() {
@@ -290,7 +367,19 @@ export default function TeacherProfilePage() {
             {teacher.personal?.fullNameAr && (
               <p className="text-sm text-slate-400 mt-0.5" dir="rtl">{teacher.personal.fullNameAr}</p>
             )}
+            {typeof teacher.userId === "object" && teacher.userId?.email ? (
+              <p className="text-xs text-slate-500 mt-1 font-mono">{teacher.userId.email}</p>
+            ) : (
+              <p className="text-xs text-red-500 mt-1 font-medium">
+                ⚠ Orphan profile — User account missing
+              </p>
+            )}
             <div className="flex flex-wrap gap-4 mt-2 text-xs text-slate-500">
+              {typeof teacher.userId === "object" && teacher.userId?._id && (
+                <span className="flex items-center gap-1 text-slate-400 font-mono">
+                  uid: {teacher.userId._id}
+                </span>
+              )}
               {teacher.submittedAt && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
@@ -371,6 +460,14 @@ export default function TeacherProfilePage() {
               </div>
               <Field label="Experience" value={teacher.professional?.experienceRange ? `${teacher.professional.experienceRange} years` : undefined} />
               <Field label="Employment Status" value={teacher.professional?.employmentStatus} />
+              {teacher.professional?.employmentStatus === "employed" && (
+                <Field
+                  label="Notice Period"
+                  value={typeof teacher.professional?.noticePeriodDays === "number"
+                    ? `${teacher.professional.noticePeriodDays} days`
+                    : undefined}
+                />
+              )}
             </FieldGrid>
           </Section>
 
@@ -515,6 +612,9 @@ export default function TeacherProfilePage() {
               <TabsTrigger value="offers" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 Offers <TabCount n={activity?.offers.length} />
               </TabsTrigger>
+              <TabsTrigger value="history" className="rounded-none pb-3 px-4 text-xs font-semibold">
+                History <TabCount n={history.length} />
+              </TabsTrigger>
             </TabsList>
 
             {/* Applications */}
@@ -585,6 +685,17 @@ export default function TeacherProfilePage() {
                   })}
                 </div>
               ) : <EmptyActivity label="No offers yet" />}
+            </TabsContent>
+
+            {/* History — SRD 2.2.10 */}
+            <TabsContent value="history">
+              {historyLoading ? <ActivitySkeletons /> : history.length ? (
+                <div className="space-y-2">
+                  {history.map((entry) => (
+                    <HistoryEntry key={entry._id} entry={entry} />
+                  ))}
+                </div>
+              ) : <EmptyActivity label="No edits recorded yet" />}
             </TabsContent>
           </Tabs>
         </div>

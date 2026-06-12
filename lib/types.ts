@@ -39,7 +39,15 @@ export interface PlatformStats {
 export interface TeacherProfile {
   _id: string;
   uuid: string;
-  userId: string;
+  // userId may be a populated User object on the detail endpoint (getTeacher),
+  // or a plain ObjectId string on list/activity endpoints. Type as a union.
+  userId: string | {
+    _id: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    createdAt?: string;
+  };
   personal: {
     fullNameAr?: string;
     fullNameEn?: string;
@@ -54,6 +62,7 @@ export interface TeacherProfile {
     gradeLevels: string[];
     experienceRange?: string;
     employmentStatus?: string;
+    noticePeriodDays?: number;
   };
   education: {
     degreeType?: string;

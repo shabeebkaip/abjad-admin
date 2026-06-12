@@ -210,6 +210,37 @@ export async function getSchoolActivity(profileId: string): Promise<SchoolActivi
   return res.data!;
 }
 
+// ── History (SRD 2.2.10) ──────────────────────────────────
+
+export interface ProfileFieldChange {
+  field: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+}
+
+export interface ProfileChangeLogEntry {
+  _id: string;
+  teacherProfileId: string;
+  userId: string;
+  section: 'personal' | 'professional' | 'education' | 'certifications' | 'languages' | 'locationPreferences' | 'salaryExpectations' | 'resume' | 'photo';
+  changes: ProfileFieldChange[];
+  isMajor: boolean;
+  triggeredReApproval: boolean;
+  createdAt: string;
+}
+
+export interface TeacherHistoryResponse {
+  items: ProfileChangeLogEntry[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export async function getTeacherHistory(profileId: string, page = 1, limit = 20): Promise<TeacherHistoryResponse> {
+  const res = await api.get<TeacherHistoryResponse>(`/admin/teachers/${profileId}/history?page=${page}&limit=${limit}`);
+  return res.data!;
+}
+
 
 // ── Deletion ───────────────────────────────────────────────
 
