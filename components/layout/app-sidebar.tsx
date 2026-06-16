@@ -23,6 +23,7 @@ import {
   CreditCard,
   ListChecks,
   Sliders,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -88,6 +89,12 @@ const navItems: NavGroup[] = [
       { title: "Reports & Export",  href: "/reports",   icon: BarChart3 },
       { title: "Ranking & Flags",   href: "/ranking",   icon: Sliders   },
       { title: "Configuration",     href: "/settings",  icon: Settings  },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { title: "Audit Log", href: "/administration/audit-log", icon: ShieldCheck },
     ],
   },
 ];

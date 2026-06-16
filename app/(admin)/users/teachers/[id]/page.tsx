@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OwnerBillingTab } from "@/components/billing/owner-billing-tab";
+import { AuditDrawer } from "@/components/audit/audit-drawer";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -711,6 +712,13 @@ export default function TeacherProfilePage() {
               )}
             </TabsContent>
           </Tabs>
+
+          {/* Append-only audit trail for this teacher */}
+          {teacher && (
+            <div className="mt-5">
+              <AuditDrawer targetType="TeacherProfile" targetId={String(teacher._id)} />
+            </div>
+          )}
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OwnerBillingTab } from "@/components/billing/owner-billing-tab";
+import { AuditDrawer } from "@/components/audit/audit-drawer";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -573,6 +574,13 @@ export default function SchoolProfilePage() {
               {school?.userId && <OwnerBillingTab ownerId={school.userId} />}
             </TabsContent>
           </Tabs>
+
+          {/* Append-only audit trail for this school */}
+          {school && (
+            <div className="mt-5">
+              <AuditDrawer targetType="SchoolProfile" targetId={String(school._id)} />
+            </div>
+          )}
         </div>
       </div>
 
