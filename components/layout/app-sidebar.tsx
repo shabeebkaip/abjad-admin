@@ -24,6 +24,7 @@ import {
   ListChecks,
   Sliders,
   ShieldCheck,
+  Inbox,
 } from "lucide-react";
 import {
   Sidebar,
@@ -54,7 +55,8 @@ const navItems: NavGroup[] = [
   {
     label: "Overview",
     items: [
-      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Mission Control", href: "/queue",     icon: Inbox },
+      { title: "Dashboard",       href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
