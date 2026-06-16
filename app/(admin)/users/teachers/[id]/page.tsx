@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { OwnerBillingTab } from "@/components/billing/owner-billing-tab";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -615,6 +616,9 @@ export default function TeacherProfilePage() {
               <TabsTrigger value="history" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 History <TabCount n={history.length} />
               </TabsTrigger>
+              <TabsTrigger value="billing" className="rounded-none pb-3 px-4 text-xs font-semibold">
+                Billing
+              </TabsTrigger>
             </TabsList>
 
             {/* Applications */}
@@ -696,6 +700,15 @@ export default function TeacherProfilePage() {
                   ))}
                 </div>
               ) : <EmptyActivity label="No edits recorded yet" />}
+            </TabsContent>
+
+            {/* Billing */}
+            <TabsContent value="billing">
+              {teacher && (
+                <OwnerBillingTab
+                  ownerId={typeof teacher.userId === "string" ? teacher.userId : teacher.userId?._id ?? ""}
+                />
+              )}
             </TabsContent>
           </Tabs>
         </div>

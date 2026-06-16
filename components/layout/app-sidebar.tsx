@@ -17,6 +17,12 @@ import {
   ChevronRight,
   ClipboardList,
   CalendarDays,
+  Wallet,
+  Tags,
+  Receipt,
+  CreditCard,
+  ListChecks,
+  Sliders,
 } from "lucide-react";
 import {
   Sidebar,
@@ -66,11 +72,22 @@ const navItems: NavGroup[] = [
     ],
   },
   {
+    label: "Billing",
+    items: [
+      { title: "Overview",       href: "/billing",                icon: Wallet      },
+      { title: "Pricing Plans",  href: "/billing/plans",          icon: Tags        },
+      { title: "Subscriptions",  href: "/billing/subscriptions",  icon: ListChecks  },
+      { title: "Invoices",       href: "/billing/invoices",       icon: Receipt     },
+      { title: "Payments",       href: "/billing/payments",       icon: CreditCard  },
+    ],
+  },
+  {
     label: "Platform",
     items: [
-      { title: "Job Posts",       href: "/content",   icon: FileText  },
-      { title: "Reports & Export",href: "/reports",   icon: BarChart3 },
-      { title: "Configuration",   href: "/settings",  icon: Settings  },
+      { title: "Job Posts",         href: "/content",   icon: FileText  },
+      { title: "Reports & Export",  href: "/reports",   icon: BarChart3 },
+      { title: "Ranking & Flags",   href: "/ranking",   icon: Sliders   },
+      { title: "Configuration",     href: "/settings",  icon: Settings  },
     ],
   },
 ];

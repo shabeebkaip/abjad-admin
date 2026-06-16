@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { OwnerBillingTab } from "@/components/billing/owner-billing-tab";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -461,6 +462,9 @@ export default function SchoolProfilePage() {
               <TabsTrigger value="offers" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 Offers <TabCount n={activity?.offers.length} />
               </TabsTrigger>
+              <TabsTrigger value="billing" className="rounded-none pb-3 px-4 text-xs font-semibold">
+                Billing
+              </TabsTrigger>
             </TabsList>
 
             {/* Jobs */}
@@ -562,6 +566,11 @@ export default function SchoolProfilePage() {
                   })}
                 </div>
               ) : <EmptyActivity label="No offers extended yet" />}
+            </TabsContent>
+
+            {/* Billing */}
+            <TabsContent value="billing">
+              {school?.userId && <OwnerBillingTab ownerId={school.userId} />}
             </TabsContent>
           </Tabs>
         </div>
