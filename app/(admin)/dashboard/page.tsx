@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,34 +31,11 @@ import {
 } from "recharts";
 import Link from "next/link";
 import { getStats } from "@/lib/api/admin";
+import { getDashboardCharts } from "@/lib/api/admin-dashboard-charts";
 import { PlatformStats } from "@/lib/types";
 
-const registrationData = [
-  { month: "Nov", teachers: 120, schools: 18 },
-  { month: "Dec", teachers: 145, schools: 22 },
-  { month: "Jan", teachers: 198, schools: 31 },
-  { month: "Feb", teachers: 230, schools: 28 },
-  { month: "Mar", teachers: 312, schools: 45 },
-  { month: "Apr", teachers: 289, schools: 38 },
-  { month: "May", teachers: 401, schools: 52 },
-];
-
-const applicationData = [
-  { day: "Mon", count: 43 },
-  { day: "Tue", count: 67 },
-  { day: "Wed", count: 89 },
-  { day: "Thu", count: 54 },
-  { day: "Fri", count: 23 },
-  { day: "Sat", count: 12 },
-  { day: "Sun", count: 38 },
-];
-
-const conversionMetrics = [
-  { label: "Profile Completion", value: 68, color: "#0D2542" },
-  { label: "Application → Interview", value: 34, color: "#444882" },
-  { label: "Interview → Offer", value: 52, color: "#00ACD3" },
-  { label: "Offer → Hired", value: 71, color: "#24BFBF" },
-];
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAY_SHORT   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function CustomAreaTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -104,6 +82,48 @@ export default function DashboardPage() {
   }
 
   useEffect(() => { fetchStats(); }, []);
+
+  // Tier 1 #5 — real chart data (replaces former mock arrays).
+  const {
+    data: charts,
+    isLoading: chartsLoading,
+    refetch: refetchCharts,
+  } = useQuery({
+    queryKey: ["dashboard-charts"],
+    queryFn:  getDashboardCharts,
+    staleTime: 60_000,
+  });
+
+  const registrationData = useMemo(
+    () =>
+      (charts?.registrations ?? []).map((r) => {
+        const [, m] = r.monthKey.split("-");
+        return { month: MONTH_SHORT[Number(m) - 1] ?? r.monthKey, teachers: r.teachers, schools: r.schools };
+      }),
+    [charts?.registrations],
+  );
+
+  const applicationData = useMemo(
+    () =>
+      (charts?.applicationsThisWeek ?? []).map((d) => {
+        const day = new Date(`${d.dayKey}T00:00:00Z`).getUTCDay();
+        return { day: DAY_SHORT[day] ?? d.dayKey, count: d.count };
+      }),
+    [charts?.applicationsThisWeek],
+  );
+
+  const conversionMetrics = useMemo(
+    () => [
+      { label: "Profile Completion",       value: charts?.conversion.profileCompletion      ?? 0, color: "#0D2542" },
+      { label: "Application → Interview",  value: charts?.conversion.applicationToInterview ?? 0, color: "#444882" },
+      { label: "Interview → Offer",        value: charts?.conversion.interviewToOffer       ?? 0, color: "#00ACD3" },
+      { label: "Offer → Hired",            value: charts?.conversion.offerToHired           ?? 0, color: "#24BFBF" },
+    ],
+    [charts?.conversion],
+  );
+
+  const registrationsEmpty = registrationData.every((r) => r.teachers === 0 && r.schools === 0);
+  const applicationsEmpty  = applicationData.every((d)  => d.count === 0);
 
   const totalTeachers =
     (stats?.teachers.approved ?? 0) +
@@ -199,10 +219,10 @@ export default function DashboardPage() {
           variant="outline"
           size="sm"
           className="h-9 gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 rounded-xl"
-          onClick={fetchStats}
-          disabled={loading}
+          onClick={() => { fetchStats(); refetchCharts(); }}
+          disabled={loading || chartsLoading}
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${loading || chartsLoading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -334,6 +354,13 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          {chartsLoading ? (
+            <Skeleton className="h-[180px] w-full rounded-md" />
+          ) : registrationsEmpty ? (
+            <div className="h-[180px] flex items-center justify-center text-xs text-slate-400">
+              No registrations in the last 7 months yet.
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={registrationData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
               <defs>
@@ -379,6 +406,7 @@ export default function DashboardPage() {
               />
             </AreaChart>
           </ResponsiveContainer>
+          )}
         </div>
 
         {/* Bar chart */}
@@ -387,6 +415,13 @@ export default function DashboardPage() {
             <p className="text-sm font-semibold text-slate-800">Applications This Week</p>
             <p className="text-xs text-slate-400 mt-0.5">Daily breakdown</p>
           </div>
+          {chartsLoading ? (
+            <Skeleton className="h-[180px] w-full rounded-md" />
+          ) : applicationsEmpty ? (
+            <div className="h-[180px] flex items-center justify-center text-xs text-slate-400">
+              No applications submitted in the last 7 days.
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={applicationData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
               <defs>
@@ -416,6 +451,7 @@ export default function DashboardPage() {
               />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -424,7 +460,14 @@ export default function DashboardPage() {
         {/* Conversion metrics */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <p className="text-sm font-semibold text-slate-800 mb-1">Conversion Metrics</p>
-          <p className="text-xs text-slate-400 mb-5">Pipeline performance estimates</p>
+          <p className="text-xs text-slate-400 mb-5">Live pipeline conversion rates</p>
+          {chartsLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-6 w-full rounded-md" />
+              ))}
+            </div>
+          ) : (
           <div className="space-y-4">
             {conversionMetrics.map((m) => (
               <div key={m.label}>
@@ -446,6 +489,7 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
 
         {/* Pending actions */}
