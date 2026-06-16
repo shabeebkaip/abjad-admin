@@ -10,10 +10,8 @@ import { Badge } from "@/components/ui/badge";
 const breadcrumbs: Record<string, { label: string; parent?: string }> = {
   "/dashboard": { label: "Dashboard" },
   "/users": { label: "User Management" },
-  "/transactions": { label: "Transactions" },
   "/tickets": { label: "Support Tickets" },
   "/content": { label: "Content Management" },
-  "/checks": { label: "Background & Credit Checks" },
   "/settings": { label: "Platform Configuration" },
   "/reports": { label: "Reports & Export" },
 };
