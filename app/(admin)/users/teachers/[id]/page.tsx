@@ -27,6 +27,7 @@ import {
 } from "@/lib/api/admin";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TeacherProfile, TeacherActivity } from "@/lib/types";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ── Status configs ────────────────────────────────────────
 
@@ -203,6 +204,7 @@ export default function TeacherProfilePage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
 
   const [activity, setActivity] = useState<TeacherActivity | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -239,6 +241,7 @@ export default function TeacherProfilePage() {
       try {
         const updated = await approveTeacher(id);
         setTeacher((prev) => prev ? { ...prev, profileStatus: updated.profileStatus } : prev);
+        queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Action failed");
       }
@@ -263,6 +266,7 @@ export default function TeacherProfilePage() {
       try {
         const updated = await rejectTeacher(id, rejectReason);
         setTeacher((prev) => prev ? { ...prev, profileStatus: updated.profileStatus, rejectionReason: rejectReason } : prev);
+        queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
         setRejectOpen(false);
         setRejectReason("");
       } catch (err) {

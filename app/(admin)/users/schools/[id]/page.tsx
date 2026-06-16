@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { getSchool, approveSchool, rejectSchool, deleteSchool, getSchoolActivity } from "@/lib/api/admin";
 import { SchoolProfile, SchoolActivity } from "@/lib/types";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ── Status configs ────────────────────────────────────────
 
@@ -139,6 +140,7 @@ export default function SchoolProfilePage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
 
   const [activity, setActivity] = useState<SchoolActivity | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -164,6 +166,7 @@ export default function SchoolProfilePage() {
       try {
         const updated = await approveSchool(id);
         setSchool((prev) => prev ? { ...prev, profileStatus: updated.profileStatus } : prev);
+        queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Action failed");
       }
@@ -176,6 +179,7 @@ export default function SchoolProfilePage() {
       try {
         const updated = await rejectSchool(id, rejectReason);
         setSchool((prev) => prev ? { ...prev, profileStatus: updated.profileStatus, rejectionReason: rejectReason } : prev);
+        queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
         setRejectOpen(false);
         setRejectReason("");
       } catch (err) {

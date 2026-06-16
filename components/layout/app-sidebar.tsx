@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useSidebarCounts } from "@/hooks/use-sidebar-counts";
+import type { SidebarCounts } from "@/lib/api/admin-sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,23 +50,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-type NavItem = { title: string; href: string; icon: React.ElementType; badge?: string };
+type BadgeKey = keyof SidebarCounts;
+type NavItem = { title: string; href: string; icon: React.ElementType; badgeKey?: BadgeKey };
 type NavGroup = { label: string; items: NavItem[] };
 
 const navItems: NavGroup[] = [
   {
     label: "Overview",
     items: [
-      { title: "Mission Control", href: "/queue",     icon: Inbox },
+      { title: "Mission Control", href: "/queue",     icon: Inbox,           badgeKey: "queueTotal" },
       { title: "Dashboard",       href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
     label: "Management",
     items: [
-      { title: "Teachers",        href: "/users/teachers", icon: GraduationCap, badge: "2" },
-      { title: "Schools",         href: "/users/schools",  icon: Building2,     badge: "1" },
-      { title: "Support Tickets", href: "/tickets",        icon: Headphones,    badge: "5" },
+      { title: "Teachers",        href: "/users/teachers", icon: GraduationCap, badgeKey: "teachersPending" },
+      { title: "Schools",         href: "/users/schools",  icon: Building2,     badgeKey: "schoolsPending"  },
+      { title: "Support Tickets", href: "/tickets",        icon: Headphones,    badgeKey: "ticketsOpen"     },
     ],
   },
   {
@@ -80,7 +83,7 @@ const navItems: NavGroup[] = [
       { title: "Overview",       href: "/billing",                icon: Wallet      },
       { title: "Pricing Plans",  href: "/billing/plans",          icon: Tags        },
       { title: "Subscriptions",  href: "/billing/subscriptions",  icon: ListChecks  },
-      { title: "Invoices",       href: "/billing/invoices",       icon: Receipt     },
+      { title: "Invoices",       href: "/billing/invoices",       icon: Receipt,    badgeKey: "invoicesPending" },
       { title: "Payments",       href: "/billing/payments",       icon: CreditCard  },
     ],
   },
@@ -101,9 +104,16 @@ const navItems: NavGroup[] = [
   },
 ];
 
+function formatBadge(n: number): string {
+  if (n <= 0)   return "";
+  if (n > 99)   return "99+";
+  return String(n);
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { data: counts } = useSidebarCounts();
 
   function handleLogout() {
     clearToken();
@@ -144,6 +154,9 @@ export function AppSidebar() {
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/" && pathname.startsWith(item.href));
+                const badgeText = item.badgeKey && counts
+                  ? formatBadge(counts[item.badgeKey])
+                  : "";
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -172,16 +185,16 @@ export function AppSidebar() {
                         )}
                       />
                       <span className="flex-1 truncate">{item.title}</span>
-                      {item.badge && (
+                      {badgeText && (
                         <Badge
                           className={cn(
-                            "h-5 min-w-5 px-1.5 text-[10px] font-bold rounded-full border-0",
+                            "h-5 min-w-5 px-1.5 text-[10px] font-bold rounded-full border-0 tabular-nums",
                             isActive
                               ? "bg-white/20 text-white"
                               : "bg-[#00ACD3]/20 text-[#00ACD3]"
                           )}
                         >
-                          {item.badge}
+                          {badgeText}
                         </Badge>
                       )}
                     </SidebarMenuButton>

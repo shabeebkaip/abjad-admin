@@ -25,6 +25,7 @@ import {
   listAdminTickets, replyToAdminTicket, updateAdminTicketStatus,
 } from "@/lib/api/admin";
 import type { AdminTicket } from "@/lib/types";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Priority = "low" | "medium" | "high";
 type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
@@ -87,6 +88,7 @@ export default function TicketsPage() {
   const [selected, setSelected]         = useState<AdminTicket | null>(null);
   const [reply, setReply]               = useState("");
   const [sending, setSending]           = useState(false);
+  const queryClient                     = useQueryClient();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,6 +137,7 @@ export default function TicketsPage() {
       const updated = await updateAdminTicketStatus(ticketId, status);
       setTickets((prev) => prev.map((t) => t._id === ticketId ? updated as AdminTicket : t));
       if (selected?._id === ticketId) setSelected(updated as AdminTicket);
+      queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
     } catch (err) {
       console.error(err);
     }

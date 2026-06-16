@@ -24,6 +24,7 @@ import {
   type Invoice, type InvoiceStatus, halalaToSAR,
 } from "@/lib/api/admin-billing";
 import { downloadCsv } from "@/lib/csv";
+import { useQueryClient } from "@tanstack/react-query";
 
 const STATUSES: { value: InvoiceStatus | "all"; label: string; color: string }[] = [
   { value: "all",       label: "All",        color: "" },
@@ -48,6 +49,7 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [markPaidTarget, setMarkPaidTarget] = useState<Invoice | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -245,7 +247,11 @@ export default function InvoicesPage() {
       <MarkPaidDialog
         invoice={markPaidTarget}
         onClose={() => setMarkPaidTarget(null)}
-        onSuccess={() => { setMarkPaidTarget(null); load(); }}
+        onSuccess={() => {
+          setMarkPaidTarget(null);
+          load();
+          queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
+        }}
       />
     </div>
   );

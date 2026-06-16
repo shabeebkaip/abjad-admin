@@ -84,7 +84,10 @@ export default function QueuePage() {
   }, [items, activeId]);
 
   // ─── Mutations (with optimistic-ish invalidation) ─────────────────────────
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-queue"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-queue"] });
+    queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
+  };
   const auditInvalidate = () => queryClient.invalidateQueries({ queryKey: ["audit-target"] });
 
   const approveMut = useMutation({
