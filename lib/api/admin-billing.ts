@@ -12,6 +12,22 @@ export type PlanCode =
   | "school_monthly" | "school_6month" | "school_annual"
   | "teacher_premium_monthly" | "teacher_premium_6month" | "teacher_premium_annual";
 
+// Step 1 — entitlement bag. Keys defined by EntitlementRegistry on the
+// backend; values are stored per plan. UI hydrates the registry from
+// /admin/entitlement-registry to decide how to render each input.
+export type EntitlementValue = number | boolean | null;
+export type EntitlementBag = Record<string, EntitlementValue>;
+
+export interface EntitlementRegistryEntry {
+  key: string;
+  name: string;
+  description: string;
+  kind: "boolean" | "integer" | "integerOrNull";
+  audience: PlanType;
+  defaultValue: EntitlementValue;
+  wiredInCode: boolean;
+}
+
 export interface PricingPlan {
   _id: string;
   code: PlanCode;
@@ -22,6 +38,18 @@ export interface PricingPlan {
   nameAr: string;
   isActive: boolean;
   effectiveFrom: string;
+
+  // Step 1 — entitlements + marketing
+  entitlements: EntitlementBag;
+  descriptionEn?: string;
+  descriptionAr?: string;
+  marketingBulletsEn: string[];
+  marketingBulletsAr: string[];
+  displayOrder: number;
+  isHighlighted: boolean;
+  ctaTextEn?: string;
+  ctaTextAr?: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -168,9 +196,26 @@ export async function listPricingPlans(): Promise<PricingPlan[]> {
 }
 export async function updatePricingPlan(
   id: string,
-  patch: Partial<{ priceSAR: number; priceHalala: number; nameEn: string; nameAr: string; isActive: boolean }>,
+  patch: Partial<{
+    priceSAR: number; priceHalala: number;
+    nameEn: string; nameAr: string;
+    isActive: boolean;
+    entitlements: EntitlementBag;
+    descriptionEn: string | null;
+    descriptionAr: string | null;
+    marketingBulletsEn: string[];
+    marketingBulletsAr: string[];
+    displayOrder: number;
+    isHighlighted: boolean;
+    ctaTextEn: string | null;
+    ctaTextAr: string | null;
+  }>,
 ): Promise<PricingPlan> {
   return (await api.patch<PricingPlan>(`/admin/pricing-plans/${id}`, patch)).data!;
+}
+
+export async function getEntitlementRegistry(): Promise<EntitlementRegistryEntry[]> {
+  return (await api.get<EntitlementRegistryEntry[]>("/admin/entitlement-registry")).data!;
 }
 
 // ─── Subscriptions ────────────────────────────────────────────────────────────
