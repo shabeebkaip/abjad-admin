@@ -25,6 +25,7 @@ import {
   Sliders,
   ShieldCheck,
   Inbox,
+  Mail,
 } from "lucide-react";
 import {
   Sidebar,
@@ -90,10 +91,11 @@ const navItems: NavGroup[] = [
   {
     label: "Platform",
     items: [
-      { title: "Job Posts",         href: "/content",   icon: FileText  },
-      { title: "Reports & Export",  href: "/reports",   icon: BarChart3 },
-      { title: "Ranking & Flags",   href: "/ranking",   icon: Sliders   },
-      { title: "Configuration",     href: "/settings",  icon: Settings  },
+      { title: "Job Posts",         href: "/content",         icon: FileText  },
+      { title: "Reports & Export",  href: "/reports",         icon: BarChart3 },
+      { title: "Ranking & Flags",   href: "/ranking",         icon: Sliders   },
+      { title: "Email Templates",   href: "/email-templates", icon: Mail      },
+      { title: "Configuration",     href: "/settings",        icon: Settings  },
     ],
   },
   {

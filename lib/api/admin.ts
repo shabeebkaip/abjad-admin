@@ -200,6 +200,60 @@ export async function listAdminUsers(): Promise<AdminUserRef[]> {
   return res.data!;
 }
 
+// ── Tier 2 #12 — Email templates ──────────────────────────────────────────
+
+export interface EmailTemplateSummary {
+  key: string;
+  name: string;
+  description: string;
+  audience: string;
+  customised: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface EmailTemplateVariable {
+  name: string;
+  description: string;
+  sample: string;
+}
+
+export interface EmailTemplateDetail {
+  key: string;
+  registry: {
+    name: string;
+    description: string;
+    audience: string;
+    layoutTitle: string;
+    defaultSubject: string;
+    defaultBody: string;
+    variables: EmailTemplateVariable[];
+  };
+  current: { subject: string; body: string };
+  customised: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export async function listEmailTemplates(): Promise<EmailTemplateSummary[]> {
+  const res = await api.get<EmailTemplateSummary[]>(`/admin/email-templates`);
+  return res.data!;
+}
+
+export async function getEmailTemplate(key: string): Promise<EmailTemplateDetail> {
+  const res = await api.get<EmailTemplateDetail>(`/admin/email-templates/${key}`);
+  return res.data!;
+}
+
+export async function updateEmailTemplate(key: string, payload: { subject: string; body: string }) {
+  const res = await api.patch<{ subject: string; body: string }>(`/admin/email-templates/${key}`, payload);
+  return res.data!;
+}
+
+export async function resetEmailTemplate(key: string) {
+  await api.post(`/admin/email-templates/${key}/reset`);
+}
+
 // ── Jobs (Content Moderation) ──────────────────────────────
 
 export async function listAdminJobs(params: { status?: string; page?: number; limit?: number } = {}): Promise<AdminJobListResponse> {
