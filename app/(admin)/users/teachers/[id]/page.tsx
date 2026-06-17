@@ -20,6 +20,7 @@ import {
   ArrowLeft, CheckCircle2, XCircle, GraduationCap, BookOpen,
   MapPin, Briefcase, Globe, FileText, Award, AlertCircle, Loader2,
   User, Calendar, Trash2, Activity, History, AlertTriangle,
+  ShieldAlert, ShieldCheck,
 } from "lucide-react";
 import {
   getTeacher, approveTeacher, rejectTeacher, deleteTeacher,
@@ -28,6 +29,11 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TeacherProfile, TeacherActivity } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { SuspensionDialog } from "@/components/suspension/suspension-dialog";
+import { SuspensionHistory } from "@/components/suspension/suspension-history";
+import {
+  suspendTeacher, reinstateTeacher, type SuspensionReasonCode,
+} from "@/lib/api/admin-suspension";
 
 // ── Status configs ────────────────────────────────────────
 
@@ -205,6 +211,7 @@ export default function TeacherProfilePage() {
   const [actionError, setActionError] = useState("");
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
+  const [suspensionMode, setSuspensionMode] = useState<"suspend" | "reinstate" | null>(null);
 
   const [activity, setActivity] = useState<TeacherActivity | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -258,6 +265,27 @@ export default function TeacherProfilePage() {
         setDeleteOpen(false);
       }
     });
+  }
+
+  async function handleSuspensionConfirm(reasonCode: SuspensionReasonCode, reasonNotes?: string) {
+    if (!suspensionMode) return;
+    const isSuspend = suspensionMode === "suspend";
+    const event = isSuspend
+      ? await suspendTeacher(id, reasonCode, reasonNotes)
+      : await reinstateTeacher(id, reasonCode, reasonNotes);
+    // Optimistically refresh the profile from the new status implied by the event.
+    setTeacher((prev) => {
+      if (!prev) return prev;
+      const next: TeacherProfile["profileStatus"] = isSuspend
+        ? "suspended"
+        : (event.priorStatus && event.priorStatus !== "suspended"
+            ? (event.priorStatus as TeacherProfile["profileStatus"])
+            : "pending");
+      return { ...prev, profileStatus: next };
+    });
+    queryClient.invalidateQueries({ queryKey: ["suspension-history", "TeacherProfile", id] });
+    queryClient.invalidateQueries({ queryKey: ["audit-target"] });
+    queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
   }
 
   function handleRejectConfirm() {
@@ -343,6 +371,28 @@ export default function TeacherProfilePage() {
                 Verify
               </Button>
             </>
+          )}
+          {teacher.profileStatus === "approved" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+              onClick={() => setSuspensionMode("suspend")}
+              disabled={isPending}
+            >
+              <ShieldAlert className="h-3.5 w-3.5 mr-1.5" /> Suspend
+            </Button>
+          )}
+          {teacher.profileStatus === "suspended" && (
+            <Button
+              size="sm"
+              className="rounded-xl text-white border-0"
+              style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
+              onClick={() => setSuspensionMode("reinstate")}
+              disabled={isPending}
+            >
+              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Reinstate
+            </Button>
           )}
         </div>
       </div>
@@ -621,6 +671,9 @@ export default function TeacherProfilePage() {
               <TabsTrigger value="history" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 History <TabCount n={history.length} />
               </TabsTrigger>
+              <TabsTrigger value="suspensions" className="rounded-none pb-3 px-4 text-xs font-semibold">
+                Suspensions
+              </TabsTrigger>
               <TabsTrigger value="billing" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 Billing
               </TabsTrigger>
@@ -707,6 +760,11 @@ export default function TeacherProfilePage() {
               ) : <EmptyActivity label="No edits recorded yet" />}
             </TabsContent>
 
+            {/* Suspensions */}
+            <TabsContent value="suspensions">
+              <SuspensionHistory targetType="TeacherProfile" targetId={id} />
+            </TabsContent>
+
             {/* Billing */}
             <TabsContent value="billing">
               {teacher && (
@@ -725,6 +783,15 @@ export default function TeacherProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Suspension dialog */}
+      <SuspensionDialog
+        open={suspensionMode !== null}
+        mode={suspensionMode ?? "suspend"}
+        subjectName={name}
+        onConfirm={handleSuspensionConfirm}
+        onClose={() => setSuspensionMode(null)}
+      />
 
       {/* Delete confirmation */}
       <ConfirmDialog

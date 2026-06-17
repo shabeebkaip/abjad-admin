@@ -20,10 +20,16 @@ import {
   ArrowLeft, CheckCircle2, XCircle, Building2, Globe,
   FileText, AlertCircle, Loader2, MapPin,
   Calendar, Trash2, FileCheck2, Users, ExternalLink, Activity,
+  ShieldAlert, ShieldCheck,
 } from "lucide-react";
 import { getSchool, approveSchool, rejectSchool, deleteSchool, getSchoolActivity } from "@/lib/api/admin";
 import { SchoolProfile, SchoolActivity } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { SuspensionDialog } from "@/components/suspension/suspension-dialog";
+import { SuspensionHistory } from "@/components/suspension/suspension-history";
+import {
+  suspendSchool, reinstateSchool, type SuspensionReasonCode,
+} from "@/lib/api/admin-suspension";
 
 // ── Status configs ────────────────────────────────────────
 
@@ -141,6 +147,7 @@ export default function SchoolProfilePage() {
   const [actionError, setActionError] = useState("");
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
+  const [suspensionMode, setSuspensionMode] = useState<"suspend" | "reinstate" | null>(null);
 
   const [activity, setActivity] = useState<SchoolActivity | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -171,6 +178,26 @@ export default function SchoolProfilePage() {
         setActionError(err instanceof Error ? err.message : "Action failed");
       }
     });
+  }
+
+  async function handleSuspensionConfirm(reasonCode: SuspensionReasonCode, reasonNotes?: string) {
+    if (!suspensionMode) return;
+    const isSuspend = suspensionMode === "suspend";
+    const event = isSuspend
+      ? await suspendSchool(id, reasonCode, reasonNotes)
+      : await reinstateSchool(id, reasonCode, reasonNotes);
+    setSchool((prev) => {
+      if (!prev) return prev;
+      const next: SchoolProfile["profileStatus"] = isSuspend
+        ? "suspended"
+        : (event.priorStatus && event.priorStatus !== "suspended"
+            ? (event.priorStatus as SchoolProfile["profileStatus"])
+            : "pending");
+      return { ...prev, profileStatus: next };
+    });
+    queryClient.invalidateQueries({ queryKey: ["suspension-history", "SchoolProfile", id] });
+    queryClient.invalidateQueries({ queryKey: ["audit-target"] });
+    queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
   }
 
   function handleRejectConfirm() {
@@ -270,6 +297,28 @@ export default function SchoolProfilePage() {
                 Verify
               </Button>
             </>
+          )}
+          {school.profileStatus === "verified" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+              onClick={() => setSuspensionMode("suspend")}
+              disabled={isPending}
+            >
+              <ShieldAlert className="h-3.5 w-3.5 mr-1.5" /> Suspend
+            </Button>
+          )}
+          {school.profileStatus === "suspended" && (
+            <Button
+              size="sm"
+              className="rounded-xl text-white border-0"
+              style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
+              onClick={() => setSuspensionMode("reinstate")}
+              disabled={isPending}
+            >
+              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Reinstate
+            </Button>
           )}
         </div>
       </div>
@@ -467,6 +516,9 @@ export default function SchoolProfilePage() {
               <TabsTrigger value="offers" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 Offers <TabCount n={activity?.offers.length} />
               </TabsTrigger>
+              <TabsTrigger value="suspensions" className="rounded-none pb-3 px-4 text-xs font-semibold">
+                Suspensions
+              </TabsTrigger>
               <TabsTrigger value="billing" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 Billing
               </TabsTrigger>
@@ -573,6 +625,11 @@ export default function SchoolProfilePage() {
               ) : <EmptyActivity label="No offers extended yet" />}
             </TabsContent>
 
+            {/* Suspensions */}
+            <TabsContent value="suspensions">
+              <SuspensionHistory targetType="SchoolProfile" targetId={id} />
+            </TabsContent>
+
             {/* Billing */}
             <TabsContent value="billing">
               {school?.userId && <OwnerBillingTab ownerId={school.userId} />}
@@ -587,6 +644,15 @@ export default function SchoolProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Suspension dialog */}
+      <SuspensionDialog
+        open={suspensionMode !== null}
+        mode={suspensionMode ?? "suspend"}
+        subjectName={name}
+        onConfirm={handleSuspensionConfirm}
+        onClose={() => setSuspensionMode(null)}
+      />
 
       {/* Delete confirmation */}
       <ConfirmDialog
