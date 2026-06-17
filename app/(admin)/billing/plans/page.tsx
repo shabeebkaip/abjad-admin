@@ -196,7 +196,7 @@ function PlanEditorSheet({
           <SheetDescription className="font-mono text-[11px]">{plan.code}</SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto mt-4 space-y-6 pr-1">
+        <div className="flex-1 overflow-y-auto mt-5 space-y-8 pr-1">
           {error && (
             <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
               {error}
@@ -238,7 +238,7 @@ function PlanEditorSheet({
             {planEntitlements.length === 0 ? (
               <p className="text-xs text-slate-400 italic">No entitlements defined for this audience.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {planEntitlements.map((entry) => (
                   <EntitlementRow
                     key={entry.key}
@@ -366,13 +366,14 @@ function EntitlementRow({
   onChange: (v: number | boolean | null) => void;
 }) {
   const isUnlimited = entry.kind === "integerOrNull" && value === null;
+
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+    <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-4 space-y-3">
+      {/* Header: name + key + status pill (wraps cleanly on narrow widths) */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-semibold text-slate-700">{entry.name}</p>
-            <code className="font-mono text-[9px] text-slate-400">{entry.key}</code>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-sm font-semibold text-slate-800 leading-snug">{entry.name}</p>
             {entry.wiredInCode ? (
               <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
                 <CheckCircle2 size={9} /> Live
@@ -383,44 +384,58 @@ function EntitlementRow({
               </span>
             )}
           </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">{entry.description}</p>
+          <code className="font-mono text-[10px] text-slate-400 block mt-0.5">{entry.key}</code>
+          <p className="text-xs text-slate-500 leading-relaxed mt-1.5">{entry.description}</p>
         </div>
-        <div className="shrink-0">
-          {entry.kind === "boolean" ? (
+
+        {/* Boolean lives in the header row — it's compact enough */}
+        {entry.kind === "boolean" && (
+          <div className="shrink-0 pt-0.5">
             <Switch
               checked={value === true}
               onCheckedChange={(v) => onChange(v)}
             />
-          ) : entry.kind === "integer" ? (
+          </div>
+        )}
+      </div>
+
+      {/* Numeric controls get their own row so they never squeeze */}
+      {entry.kind === "integer" && (
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <Label className="text-[11px] text-slate-500">Value</Label>
+          <Input
+            type="number" min={0} step={1}
+            value={String(value ?? 0)}
+            onChange={(e) => onChange(Number(e.target.value) || 0)}
+            className="w-28 font-mono tabular-nums text-right h-9"
+          />
+        </div>
+      )}
+
+      {entry.kind === "integerOrNull" && (
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <label className="inline-flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isUnlimited}
+              onChange={(e) => onChange(e.target.checked ? null : 0)}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-1 focus:ring-primary cursor-pointer"
+            />
+            Unlimited
+          </label>
+          <div className="flex items-center gap-2">
+            <Label className="text-[11px] text-slate-500">Value</Label>
             <Input
               type="number" min={0} step={1}
-              value={String(value ?? 0)}
+              value={isUnlimited ? "" : String(value ?? 0)}
+              disabled={isUnlimited}
               onChange={(e) => onChange(Number(e.target.value) || 0)}
-              className="w-24 font-mono tabular-nums text-right h-8"
+              className="w-28 font-mono tabular-nums text-right h-9 disabled:bg-slate-100 disabled:text-slate-300"
+              placeholder={isUnlimited ? "∞" : "0"}
             />
-          ) : (
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isUnlimited}
-                  onChange={(e) => onChange(e.target.checked ? null : 0)}
-                  className="h-3 w-3 rounded border-slate-300"
-                />
-                Unlimited
-              </label>
-              {!isUnlimited && (
-                <Input
-                  type="number" min={0} step={1}
-                  value={String(value ?? 0)}
-                  onChange={(e) => onChange(Number(e.target.value) || 0)}
-                  className="w-20 font-mono tabular-nums text-right h-8"
-                />
-              )}
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
