@@ -1,11 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 const breadcrumbs: Record<string, { label: string; parent?: string }> = {
   "/dashboard": { label: "Dashboard" },
@@ -35,12 +35,7 @@ export function Header() {
         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
           <Search className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
-          <Bell className="h-4 w-4" />
-          <span className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-[#00ACD3] text-white text-[9px] font-bold">
-            8
-          </span>
-        </Button>
+        <NotificationBell />
       </div>
     </header>
   );
