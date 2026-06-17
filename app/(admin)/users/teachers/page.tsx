@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   GraduationCap, Search, CheckCircle2, XCircle,
-  Eye, Filter, RefreshCw, AlertCircle, Loader2, Users,
+  Eye, Filter, RefreshCw, AlertCircle, Loader2, Users, X,
 } from "lucide-react";
 import { listTeachers, approveTeacher, rejectTeacher } from "@/lib/api/admin";
 import { TeacherProfile } from "@/lib/types";
@@ -45,7 +45,7 @@ function StatusBadge({ status }: { status: string }) {
 function RowSkeleton() {
   return (
     <TableRow className="border-slate-100">
-      {Array.from({ length: 7 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <TableCell key={i}><Skeleton className="h-4 w-full" /></TableCell>
       ))}
     </TableRow>
@@ -63,6 +63,14 @@ export default function TeachersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [actionError, setActionError] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // Tier 2 #14 — bulk selection. Only `pending` teachers can be bulk-approved
+  // or bulk-rejected, so we key against that subset and silently ignore
+  // anything else if the data shifts mid-flight.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ ok: number; fail: number } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -113,6 +121,62 @@ export default function TeachersPage() {
   const approved  = teachers.filter((t) => t.profileStatus === "approved").length;
   const rejected  = teachers.filter((t) => ["rejected","suspended"].includes(t.profileStatus)).length;
 
+  // ── Bulk helpers ──────────────────────────────────────────────────────────
+  const visiblePendingIds = useMemo(
+    () => filtered.filter((t) => t.profileStatus === "pending").map((t) => t._id),
+    [filtered],
+  );
+  const allVisibleSelected = visiblePendingIds.length > 0 && visiblePendingIds.every((id) => selected.has(id));
+  const someVisibleSelected = !allVisibleSelected && visiblePendingIds.some((id) => selected.has(id));
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visiblePendingIds.forEach((id) => next.delete(id));
+      else                    visiblePendingIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  function clearSelection() { setSelected(new Set()); }
+
+  async function runBulk(action: "approve" | "reject", reason?: string) {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    setBulkResult(null);
+    // The per-id endpoints are already audit-logged + idempotent, so a frontend
+    // fan-out gives us per-row error isolation for free (no atomic semantics
+    // needed for verify/reject).
+    const ids = Array.from(selected);
+    const results = await Promise.allSettled(
+      ids.map((id) => action === "approve" ? approveTeacher(id) : rejectTeacher(id, reason ?? "")),
+    );
+    let ok = 0, fail = 0;
+    const updates: Record<string, string> = {};
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") {
+        ok++;
+        updates[ids[i]!] = r.value.profileStatus;
+      } else {
+        fail++;
+      }
+    });
+    setTeachers((prev) => prev.map((t) => updates[t._id] ? { ...t, profileStatus: updates[t._id] as TeacherProfile["profileStatus"] } : t));
+    setBulkResult({ ok, fail });
+    clearSelection();
+    setBulkBusy(false);
+    setBulkRejectOpen(false);
+    setRejectReason("");
+  }
+
   return (
     <div className="space-y-5 pb-8">
       {/* Module header — navy direction */}
@@ -140,6 +204,18 @@ export default function TeachersPage() {
           <AlertCircle className="h-4 w-4 shrink-0" />
           {actionError}
           <button onClick={() => setActionError("")} className="ml-auto text-xs underline">dismiss</button>
+        </div>
+      )}
+
+      {bulkResult && (
+        <div className={`flex items-center gap-2 rounded-xl p-3 text-sm ${
+          bulkResult.fail === 0 ? "bg-emerald-50 border border-emerald-100 text-emerald-700"
+                                : "bg-amber-50 border border-amber-200 text-amber-800"
+        }`}>
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Bulk action: <strong>{bulkResult.ok}</strong> succeeded
+          {bulkResult.fail > 0 && <>, <strong>{bulkResult.fail}</strong> failed</>}.
+          <button onClick={() => setBulkResult(null)} className="ml-auto text-xs underline">dismiss</button>
         </div>
       )}
 
@@ -198,9 +274,57 @@ export default function TeachersPage() {
           )}
         </div>
 
+        {/* Tier 2 #14 — bulk action bar (shows only when selections exist) */}
+        {selected.size > 0 && (
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 bg-slate-50/60">
+            <span className="text-xs font-semibold text-slate-700">
+              {selected.size} selected
+            </span>
+            <div className="flex-1" />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs rounded-lg gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+              disabled={bulkBusy}
+              onClick={() => runBulk("approve")}
+            >
+              {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              Verify {selected.size}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs rounded-lg gap-1 border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+              disabled={bulkBusy}
+              onClick={() => setBulkRejectOpen(true)}
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Reject {selected.size}
+            </Button>
+            <button
+              onClick={clearSelection}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-50"
+            >
+              <X className="h-3 w-3" /> Clear
+            </button>
+          </div>
+        )}
+
         <Table>
           <TableHeader>
             <TableRow className="border-slate-100 hover:bg-transparent bg-slate-50/50">
+              <TableHead className="w-10 pr-0">
+                <input
+                  type="checkbox"
+                  aria-label="Select all visible pending teachers"
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-1 focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={visiblePendingIds.length === 0}
+                  checked={allVisibleSelected}
+                  ref={(el) => { if (el) el.indeterminate = someVisibleSelected; }}
+                  onChange={toggleAllVisible}
+                />
+              </TableHead>
               <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Teacher</TableHead>
               <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Subject</TableHead>
               <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Experience</TableHead>
@@ -216,7 +340,7 @@ export default function TeachersPage() {
               : filtered.length === 0
               ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-16">
+                  <TableCell colSpan={8} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2">
                       <GraduationCap className="h-8 w-8 text-slate-200" />
                       <p className="text-sm text-slate-400">No teachers found</p>
@@ -229,8 +353,19 @@ export default function TeachersPage() {
                   const initials = name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
                   const subjects = t.professional?.subjects?.slice(0, 2).join(", ") ?? "";
                   const city = t.locationPreferences?.preferredCities?.[0] ?? "—";
+                  const isPendingProfile = t.profileStatus === "pending";
                   return (
-                    <TableRow key={t._id} className="border-slate-100 hover:bg-slate-50/50 transition-colors">
+                    <TableRow key={t._id} className={`border-slate-100 hover:bg-slate-50/50 transition-colors ${selected.has(t._id) ? "bg-primary/5" : ""}`}>
+                      <TableCell className="pr-0">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${name}`}
+                          className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-1 focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                          disabled={!isPendingProfile}
+                          checked={selected.has(t._id)}
+                          onChange={() => toggleOne(t._id)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
@@ -281,6 +416,37 @@ export default function TeachersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Tier 2 #14 — Bulk reject confirmation */}
+      <AlertDialog open={bulkRejectOpen} onOpenChange={(v) => { if (!v) { setBulkRejectOpen(false); setRejectReason(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject {selected.size} {selected.size === 1 ? "teacher" : "teachers"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              The same reason will be sent to every rejected profile. Each user will receive a notification with this message.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5 py-2">
+            <Label className="text-xs text-slate-400">Rejection reason *</Label>
+            <Textarea
+              placeholder="Describe why these profiles are being rejected..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="text-sm bg-slate-50 border-slate-200 resize-none h-20 rounded-xl"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl" disabled={bulkBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => runBulk("reject", rejectReason)}
+              disabled={!rejectReason.trim() || bulkBusy}
+            >
+              {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Reject ${selected.size}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Reject confirmation */}
       <AlertDialog open={!!rejectTarget} onOpenChange={() => { setRejectTarget(null); setRejectReason(""); }}>
