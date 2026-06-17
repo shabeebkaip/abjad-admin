@@ -53,12 +53,33 @@ async function request<T>(
     throw new Error("Unauthorized");
   }
 
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(json.message ?? `Request failed: ${res.status}`);
+  // Defensively parse the body. Anything upstream (rate limiter, proxy,
+  // gateway timeout) might return non-JSON; in that case res.json() throws
+  // a cryptic "Unexpected token" error that leaks raw text into the UI.
+  // Read as text first, then JSON.parse so we can surface a meaningful
+  // message regardless of the body shape.
+  const rawText = await res.text();
+  let json: ApiResponse<T> | undefined;
+  try {
+    json = rawText ? (JSON.parse(rawText) as ApiResponse<T>) : undefined;
+  } catch {
+    json = undefined;
   }
 
-  return json as ApiResponse<T>;
+  if (!res.ok) {
+    // 429 with a plain-text body is the classic express-rate-limit default.
+    if (res.status === 429) {
+      throw new Error(json?.message ?? "Too many requests. Please wait a moment and try again.");
+    }
+    throw new Error(
+      json?.message ?? (rawText.trim() || `Request failed: ${res.status}`),
+    );
+  }
+
+  if (!json) {
+    throw new Error("Server returned an empty or non-JSON response.");
+  }
+  return json;
 }
 
 export const api = {
