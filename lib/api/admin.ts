@@ -297,6 +297,59 @@ export async function resetDocumentReview(audience: DocAudience, profileId: stri
   return res.data!;
 }
 
+// ── Tier 3 #24 — Activity Stream + Admin Metrics ───────────────────────────
+
+export type ActivityCategory =
+  | "verification" | "support" | "billing"
+  | "configuration" | "content" | "auth" | "other";
+
+export interface ActivityStreamEntry {
+  _id: string;
+  action: string;
+  category: ActivityCategory;
+  actorId?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  targetType: string;
+  targetId?: string;
+  targetLabel?: string;
+  reason?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface ActivityStreamResponse {
+  entries: ActivityStreamEntry[];
+  latestAt: string | null;
+}
+
+export interface AdminMetrics {
+  totals: { last24h: number; last7d: number; last30d: number };
+  activeAdmins: { actorId: string; actorEmail: string; lastActionAt: string }[];
+  topThisWeek: { actorId: string; actorEmail: string; count: number }[];
+  byCategory: { category: ActivityCategory; count: number }[];
+}
+
+export async function getActivityStream(opts: {
+  since?: string;
+  category?: ActivityCategory | "all";
+  actorId?: string;
+  limit?: number;
+} = {}): Promise<ActivityStreamResponse> {
+  const qs = new URLSearchParams();
+  if (opts.since)                                qs.set("since", opts.since);
+  if (opts.category && opts.category !== "all")  qs.set("category", opts.category);
+  if (opts.actorId)                              qs.set("actorId", opts.actorId);
+  if (opts.limit)                                qs.set("limit", String(opts.limit));
+  const res = await api.get<ActivityStreamResponse>(`/admin/activity-stream?${qs}`);
+  return res.data!;
+}
+
+export async function getAdminMetrics(): Promise<AdminMetrics> {
+  const res = await api.get<AdminMetrics>(`/admin/admin-metrics`);
+  return res.data!;
+}
+
 // ── Jobs (Content Moderation) ──────────────────────────────
 
 export async function listAdminJobs(params: { status?: string; page?: number; limit?: number } = {}): Promise<AdminJobListResponse> {

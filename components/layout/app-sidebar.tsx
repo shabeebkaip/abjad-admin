@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Inbox,
   Mail,
+  Activity,
 } from "lucide-react";
 import {
   Sidebar,
@@ -101,7 +102,8 @@ const navItems: NavGroup[] = [
   {
     label: "Administration",
     items: [
-      { title: "Audit Log", href: "/administration/audit-log", icon: ShieldCheck },
+      { title: "Activity Stream", href: "/administration/activity-stream", icon: Activity   },
+      { title: "Audit Log",       href: "/administration/audit-log",       icon: ShieldCheck },
     ],
   },
 ];
