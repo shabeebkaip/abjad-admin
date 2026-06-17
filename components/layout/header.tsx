@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { useCommandPalette } from "@/components/command-palette/command-palette-provider";
 
 const breadcrumbs: Record<string, { label: string; parent?: string }> = {
   "/dashboard": { label: "Dashboard" },
@@ -19,6 +20,15 @@ const breadcrumbs: Record<string, { label: string; parent?: string }> = {
 export function Header() {
   const pathname = usePathname();
   const current = breadcrumbs[pathname] ?? { label: "Admin" };
+  const { setOpen } = useCommandPalette();
+
+  // Show ⌘ on mac, Ctrl elsewhere
+  const [modKey, setModKey] = useState("⌘");
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && !navigator.platform.toLowerCase().includes("mac")) {
+      setModKey("Ctrl");
+    }
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-100 bg-white/95 px-4 backdrop-blur-md">
@@ -31,10 +41,18 @@ export function Header() {
         <span className="text-sm font-semibold text-slate-700">{current.label}</span>
       </div>
 
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
-          <Search className="h-4 w-4" />
-        </Button>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="hidden sm:inline-flex items-center gap-2 h-8 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="text-xs">Search…</span>
+          <kbd className="ml-1 px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-mono text-slate-500">
+            {modKey} K
+          </kbd>
+        </button>
         <NotificationBell />
       </div>
     </header>
