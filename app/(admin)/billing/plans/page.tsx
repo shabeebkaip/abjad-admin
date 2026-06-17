@@ -150,7 +150,7 @@ function PlanEditorSheet({
   if (!plan || !state) {
     return (
       <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-        <SheetContent className="w-full sm:max-w-2xl" />
+        <SheetContent className="w-full sm:max-w-3xl" />
       </Sheet>
     );
   }
@@ -187,7 +187,7 @@ function PlanEditorSheet({
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full sm:max-w-2xl flex flex-col">
+      <SheetContent className="w-full sm:max-w-3xl flex flex-col">
         <SheetHeader className="px-5 pb-3 border-b border-slate-100">
           <SheetTitle className="flex items-center gap-2">
             <Icon size={18} className="text-primary" />
