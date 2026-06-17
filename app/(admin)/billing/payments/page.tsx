@@ -11,9 +11,18 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { CreditCard, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { listPayments, type Payment, type PaymentStatus, type PaymentMethod, halalaToSAR } from "@/lib/api/admin-billing";
+import { CreditCard, FileDown, ChevronLeft, ChevronRight, Undo2, Loader2 } from "lucide-react";
+import {
+  listPayments, refundPayment,
+  type Payment, type PaymentStatus, type PaymentMethod, halalaToSAR,
+} from "@/lib/api/admin-billing";
 import { downloadCsv } from "@/lib/csv";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useQueryClient } from "@tanstack/react-query";
 
 const STATUSES: { value: PaymentStatus | "all"; label: string; color: string }[] = [
   { value: "all",       label: "All",       color: "" },
@@ -44,6 +53,8 @@ export default function PaymentsPage() {
   const [method, setMethod] = useState<PaymentMethod | "all">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refundTarget, setRefundTarget] = useState<Payment | null>(null);
+  const queryClient = useQueryClient();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,6 +144,7 @@ export default function PaymentsPage() {
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -151,6 +163,20 @@ export default function PaymentsPage() {
                           {p.bankReference ?? p.moyasarPaymentId ?? <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="text-xs">{new Date(p.createdAt).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          {p.status === "succeeded" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] border-amber-200 text-amber-700 hover:bg-amber-50"
+                              onClick={() => setRefundTarget(p)}
+                            >
+                              <Undo2 size={11} className="mr-1" /> Refund
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -172,6 +198,117 @@ export default function PaymentsPage() {
           )}
         </CardContent>
       </Card>
+
+      <RefundDialog
+        payment={refundTarget}
+        onClose={() => setRefundTarget(null)}
+        onSuccess={() => {
+          setRefundTarget(null);
+          load();
+          queryClient.invalidateQueries({ queryKey: ["admin-ledger"] });
+          queryClient.invalidateQueries({ queryKey: ["audit-target"] });
+        }}
+      />
     </div>
+  );
+}
+
+// ─── Refund dialog ────────────────────────────────────────────────────────
+
+function RefundDialog({
+  payment, onClose, onSuccess,
+}: {
+  payment: Payment | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (payment) { setReason(""); setError(null); }
+  }, [payment]);
+
+  if (!payment) return null;
+
+  const inv = typeof payment.invoiceId === "string" ? null : payment.invoiceId;
+  const isOffPlatform = !payment.moyasarPaymentId;
+
+  const handleConfirm = async () => {
+    if (!reason.trim()) { setError("Reason is required"); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await refundPayment(payment._id, reason.trim());
+      onSuccess();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Refund failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!payment} onOpenChange={(o) => !o && !submitting && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Undo2 className="h-5 w-5 text-amber-600" />
+            Refund payment
+          </DialogTitle>
+          <DialogDescription>
+            Refund <span className="font-mono font-medium">{halalaToSAR(payment.amountHalala)} SAR</span>
+            {inv?.number && <> on invoice <span className="font-mono font-medium">{inv.number}</span></>}.
+            {isOffPlatform ? (
+              <span className="block mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                <strong>Off-platform refund.</strong> No Moyasar payment id on this record — this only writes the ledger entry. Process the bank-side refund manually.
+              </span>
+            ) : (
+              <span className="block mt-1 text-xs text-slate-500">
+                A Moyasar refund will be issued first, then the ledger updated.
+              </span>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-slate-600">Reason *</Label>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Why is this payment being refunded?"
+              autoFocus
+            />
+            <p className="text-[10px] text-slate-400 text-right tabular-nums">{reason.length}/500</p>
+          </div>
+
+          {error && (
+            <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 px-2.5 py-2 rounded-md">
+              {error}
+            </div>
+          )}
+
+          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5">
+            Note: refund does not cancel the subscription. Cancel manually from /billing/subscriptions if needed.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={submitting || !reason.trim()}
+            className="bg-amber-600 hover:bg-amber-700"
+          >
+            {submitting && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+            Refund {halalaToSAR(payment.amountHalala)} SAR
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -245,6 +245,14 @@ export async function listPayments(params?: { status?: string; method?: string; 
   return { items: res.data!.payments, total: res.data!.total, page: res.data!.page, totalPages: res.data!.totalPages };
 }
 
+/** Tier 2 #13 — full refund. Provider-aware (Moyasar refund or off-platform record). */
+export async function refundPayment(paymentId: string, reason: string): Promise<{ payment: Payment }> {
+  return (await api.post<{ payment: Payment }>(
+    `/admin/payments/${paymentId}/refund`,
+    { reason },
+  )).data!;
+}
+
 // ─── Ledger ───────────────────────────────────────────────────────────────────
 
 export async function getOwnerLedger(ownerId: string): Promise<{ entries: LedgerEntry[]; balance: number }> {
