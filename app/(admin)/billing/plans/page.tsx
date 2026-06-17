@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, Tags, Info, Building2, GraduationCap, Loader2 } from "lucide-react";
+import { Save, Tags, Info, Building2, GraduationCap, Loader2, Terminal, AlertTriangle } from "lucide-react";
 import {
   listPricingPlans, updatePricingPlan,
   type PricingPlan,
@@ -165,27 +165,106 @@ export default function PricingPlansPage() {
         </div>
       )}
 
-      {!loading && !error && (
-        <div className="space-y-6">
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-              <Building2 size={14} /> School Plans
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {schoolPlans.map((p) => <PlanRow key={p._id} plan={p} onSaved={replacePlan} />)}
-            </div>
-          </section>
+      {!loading && !error && plans.length === 0 && (
+        <EmptyPlansCallout onRetry={load} />
+      )}
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-              <GraduationCap size={14} /> Teacher Premium
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {teacherPlans.map((p) => <PlanRow key={p._id} plan={p} onSaved={replacePlan} />)}
+      {!loading && !error && plans.length > 0 && (
+        <div className="space-y-8">
+          {/* Summary strip — counts give the page weight even pre-edit */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <SummaryStat label="Total plans"    value={String(plans.length)} />
+            <SummaryStat label="Active"         value={String(plans.filter((p) => p.isActive).length)} />
+            <SummaryStat label="School"         value={String(schoolPlans.length)} />
+            <SummaryStat label="Teacher prem."  value={String(teacherPlans.length)} />
+          </div>
+
+          {schoolPlans.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Building2 size={14} /> School Plans
+                <span className="ml-1 text-[10px] font-normal text-muted-foreground/70">{schoolPlans.length}</span>
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {schoolPlans.map((p) => <PlanRow key={p._id} plan={p} onSaved={replacePlan} />)}
+              </div>
+            </section>
+          )}
+
+          {teacherPlans.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                <GraduationCap size={14} /> Teacher Premium
+                <span className="ml-1 text-[10px] font-normal text-muted-foreground/70">{teacherPlans.length}</span>
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {teacherPlans.map((p) => <PlanRow key={p._id} plan={p} onSaved={replacePlan} />)}
+              </div>
+            </section>
+          )}
+
+          {/* Show a partial-data hint if either side is missing */}
+          {(schoolPlans.length === 0 || teacherPlans.length === 0) && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 p-3 flex items-start gap-2.5">
+              <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-900 dark:text-amber-200">
+                Only {schoolPlans.length === 0 ? "teacher" : "school"} plans were loaded.
+                Re-run the seed (<code className="font-mono text-[11px] bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">pnpm seed:plans</code>) from <span className="font-mono">abjad-backend</span> to restore the full set.
+              </p>
             </div>
-          </section>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────
+// Shown when the DB has no PricingPlan documents. This is almost always
+// "the seed hasn't been run on this environment yet" — show a clear
+// callout with the exact command rather than leaving section headers
+// floating over empty space.
+
+function EmptyPlansCallout({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-8">
+      <div className="flex flex-col items-center text-center max-w-md mx-auto">
+        <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3">
+          <Tags size={22} />
+        </div>
+        <h3 className="text-base font-semibold mb-1">No pricing plans configured</h3>
+        <p className="text-sm text-muted-foreground mb-5">
+          The Pricing Plans collection is empty. Six plans (3 school durations + 3 teacher premium durations)
+          are defined in the seed script — run it once per environment.
+        </p>
+
+        <div className="w-full text-left rounded-lg bg-slate-900 text-slate-100 px-4 py-3 mb-3 font-mono text-xs">
+          <div className="flex items-center gap-2 text-slate-400 mb-1.5">
+            <Terminal size={12} />
+            <span>From <code className="text-slate-300">abjad-backend</code></span>
+          </div>
+          <code className="text-emerald-300">pnpm seed:plans</code>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground mb-4">
+          The seed is idempotent — safe to re-run. Existing plans keep their current price and active state.
+        </p>
+
+        <Button onClick={onRetry} size="sm" variant="outline" className="gap-1.5">
+          <Loader2 size={13} className={false ? "animate-spin" : ""} />
+          Reload after running
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Summary stat ─────────────────────────────────────────────────────────
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl font-bold tabular-nums leading-tight mt-0.5">{value}</p>
     </div>
   );
 }
