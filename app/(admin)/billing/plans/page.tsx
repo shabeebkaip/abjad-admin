@@ -188,7 +188,7 @@ function PlanEditorSheet({
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full sm:max-w-2xl flex flex-col">
-        <SheetHeader>
+        <SheetHeader className="px-5 pb-3 border-b border-slate-100">
           <SheetTitle className="flex items-center gap-2">
             <Icon size={18} className="text-primary" />
             {plan.nameEn}
@@ -196,7 +196,7 @@ function PlanEditorSheet({
           <SheetDescription className="font-mono text-[11px]">{plan.code}</SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto mt-5 space-y-8 pr-1">
+        <div className="flex-1 overflow-y-auto px-5 mt-2 space-y-8">
           {error && (
             <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
               {error}
@@ -320,7 +320,7 @@ function PlanEditorSheet({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-100 pt-4 mt-4 flex items-center justify-between">
+        <div className="border-t border-slate-100 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] text-slate-400">
             Editing <span className="font-mono">{plan.code}</span> · code &amp; duration are frozen
           </p>
