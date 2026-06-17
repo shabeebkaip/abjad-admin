@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search, MessageSquare, Clock, AlertCircle, CheckCircle2, Send,
-  Filter, RefreshCw, Loader2,
+  Filter, RefreshCw, Loader2, UserPlus, UserCheck, Timer,
 } from "lucide-react";
 import {
   listAdminTickets, replyToAdminTicket, updateAdminTicketStatus,
+  assignAdminTicket, listAdminUsers,
 } from "@/lib/api/admin";
-import type { AdminTicket } from "@/lib/types";
+import type { AdminTicket, AdminUserRef } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
 
 type Priority = "low" | "medium" | "high";
@@ -43,16 +44,68 @@ const statusConfig: Record<TicketStatus, { label: string; className: string; ico
   closed:      { label: "Closed",      className: "bg-muted text-muted-foreground border-border",              icon: CheckCircle2 },
 };
 
-function slaPercent(createdAt: string): number {
-  const ageHours = (Date.now() - new Date(createdAt).getTime()) / 3_600_000;
-  return Math.max(0, Math.round(100 - (ageHours / 72) * 100));
+// ── SLA ──────────────────────────────────────────────────────────────────────
+// SRD 2.9.3 — 24h response SLA. Backend stamps `responseDueAt` at creation and
+// `firstResponseAt` when the first admin reply lands. We compute remaining %
+// against the responseDueAt window; once it elapses without firstResponseAt,
+// the ticket is "breached". This is the only SLA truth surface in the admin.
+
+interface SlaInfo {
+  pct: number;             // 0–100 remaining window
+  breached: boolean;
+  responded: boolean;
+  hoursAbs: number;        // |hours| relative to due time
+  tone: "ok" | "warn" | "crit";
 }
 
-function slaColor(sla: number) {
-  if (sla >= 80) return "bg-chart-3";
-  if (sla >= 50) return "bg-primary";
+function computeSla(ticket: AdminTicket): SlaInfo | null {
+  if (!ticket.responseDueAt) return null;
+  const dueMs    = new Date(ticket.responseDueAt).getTime();
+  const createdMs = new Date(ticket.createdAt).getTime();
+  const windowMs  = Math.max(1, dueMs - createdMs);
+  const responded = !!ticket.firstResponseAt;
+
+  if (responded) {
+    const respondedMs = new Date(ticket.firstResponseAt!).getTime();
+    const onTime = respondedMs <= dueMs;
+    const hoursAbs = Math.abs(respondedMs - dueMs) / 3_600_000;
+    return {
+      pct: onTime ? 100 : 0,
+      breached: !onTime,
+      responded: true,
+      hoursAbs,
+      tone: onTime ? "ok" : "crit",
+    };
+  }
+
+  const now = Date.now();
+  const remainingMs = dueMs - now;
+  const breached = remainingMs <= 0;
+  const pct = breached ? 0 : Math.min(100, Math.max(0, (remainingMs / windowMs) * 100));
+  const hoursAbs = Math.abs(remainingMs) / 3_600_000;
+  const tone: SlaInfo["tone"] = breached ? "crit" : pct < 33 ? "warn" : "ok";
+  return { pct, breached, responded: false, hoursAbs, tone };
+}
+
+function slaToneBar(tone: SlaInfo["tone"]) {
+  if (tone === "ok")   return "bg-chart-3";
+  if (tone === "warn") return "bg-amber-500";
   return "bg-destructive";
 }
+
+function slaToneText(tone: SlaInfo["tone"]) {
+  if (tone === "ok")   return "text-chart-3";
+  if (tone === "warn") return "text-amber-600";
+  return "text-destructive";
+}
+
+function formatHours(h: number): string {
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m`;
+  if (h < 48) return `${Math.round(h)}h`;
+  return `${Math.round(h / 24)}d`;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function userName(ticket: AdminTicket): string {
   if (typeof ticket.userId === "object") {
@@ -68,6 +121,29 @@ function userRole(ticket: AdminTicket): string {
   return ticket.userRole === "teacher" ? "Teacher" : "School";
 }
 
+function adminLabel(u: AdminUserRef): string {
+  const full = `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+  return full || u.email;
+}
+
+function adminInitials(u: AdminUserRef): string {
+  const full = `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+  if (!full) return u.email.slice(0, 2).toUpperCase();
+  return full.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function ticketAssignee(ticket: AdminTicket): AdminUserRef | null {
+  if (ticket.assignedTo && typeof ticket.assignedTo === "object") return ticket.assignedTo;
+  return null;
+}
+
+function ticketAssigneeId(ticket: AdminTicket): string {
+  const a = ticket.assignedTo;
+  if (!a) return "";
+  if (typeof a === "string") return a;
+  return a._id;
+}
+
 function StatCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ElementType; color: string }) {
   return (
     <div className="relative bg-white rounded-2xl p-4 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-200">
@@ -80,29 +156,43 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: n
   );
 }
 
+// ── Page ─────────────────────────────────────────────────────────────────────
+
 export default function TicketsPage() {
-  const [tickets, setTickets]           = useState<AdminTicket[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [search, setSearch]             = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selected, setSelected]         = useState<AdminTicket | null>(null);
-  const [reply, setReply]               = useState("");
-  const [sending, setSending]           = useState(false);
-  const queryClient                     = useQueryClient();
+  const [tickets, setTickets]             = useState<AdminTicket[]>([]);
+  const [admins, setAdmins]               = useState<AdminUserRef[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [search, setSearch]               = useState("");
+  const [statusFilter, setStatusFilter]   = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [selected, setSelected]           = useState<AdminTicket | null>(null);
+  const [reply, setReply]                 = useState("");
+  const [sending, setSending]             = useState(false);
+  const [assigning, setAssigning]         = useState(false);
+  const queryClient                       = useQueryClient();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listAdminTickets({ status: statusFilter, limit: 100 });
+      const res = await listAdminTickets({
+        status: statusFilter,
+        assignee: assigneeFilter,
+        limit: 100,
+      });
       setTickets(res.tickets ?? []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, assigneeFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Admin directory is small and rarely changes — fetch once on mount.
+  useEffect(() => {
+    listAdminUsers().then(setAdmins).catch(console.error);
+  }, []);
 
   const filtered = tickets.filter((t) => {
     const name = userName(t).toLowerCase();
@@ -110,20 +200,30 @@ export default function TicketsPage() {
     return name.includes(q) || t.subject.toLowerCase().includes(q) || t.ticketNumber.toLowerCase().includes(q);
   });
 
-  const counts = {
-    open:        tickets.filter((t) => t.status === "open").length,
-    in_progress: tickets.filter((t) => t.status === "in_progress").length,
-    resolved:    tickets.filter((t) => t.status === "resolved").length,
-    urgent:      tickets.filter((t) => t.priority === "high").length,
-  };
+  const counts = useMemo(() => {
+    const breached = tickets.filter((t) => {
+      const sla = computeSla(t);
+      return sla?.breached && (t.status === "open" || t.status === "in_progress");
+    }).length;
+    return {
+      open:        tickets.filter((t) => t.status === "open").length,
+      in_progress: tickets.filter((t) => t.status === "in_progress").length,
+      unassigned:  tickets.filter((t) => !ticketAssigneeId(t) && t.status !== "closed").length,
+      breached,
+    };
+  }, [tickets]);
+
+  const applyUpdatedTicket = useCallback((updated: AdminTicket) => {
+    setTickets((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
+    setSelected((cur) => (cur && cur._id === updated._id ? updated : cur));
+  }, []);
 
   const handleSend = async () => {
     if (!selected || !reply.trim()) return;
     setSending(true);
     try {
       const updated = await replyToAdminTicket(selected._id, reply.trim());
-      setTickets((prev) => prev.map((t) => t._id === updated._id ? updated as AdminTicket : t));
-      setSelected(updated as AdminTicket);
+      applyUpdatedTicket(updated as AdminTicket);
       setReply("");
     } catch (err) {
       console.error(err);
@@ -135,11 +235,24 @@ export default function TicketsPage() {
   const handleStatusChange = async (ticketId: string, status: string) => {
     try {
       const updated = await updateAdminTicketStatus(ticketId, status);
-      setTickets((prev) => prev.map((t) => t._id === ticketId ? updated as AdminTicket : t));
-      if (selected?._id === ticketId) setSelected(updated as AdminTicket);
+      applyUpdatedTicket(updated as AdminTicket);
       queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleAssign = async (ticketId: string, adminId: string) => {
+    setAssigning(true);
+    try {
+      // Picker value "unassigned" maps to a null payload.
+      const next = adminId === "unassigned" ? null : adminId;
+      const updated = await assignAdminTicket(ticketId, next);
+      applyUpdatedTicket(updated as AdminTicket);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -148,7 +261,7 @@ export default function TicketsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Support Tickets</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage tickets, respond to users, track SLA</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage tickets, assign to agents, track 24h SLA</p>
         </div>
         <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl border-slate-200" onClick={load} disabled={loading}>
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -158,16 +271,16 @@ export default function TicketsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Open"        value={counts.open}        icon={AlertCircle}  color="#ef4444" />
-        <StatCard label="In Progress" value={counts.in_progress} icon={Clock}        color="#0D2542" />
-        <StatCard label="Resolved"    value={counts.resolved}    icon={CheckCircle2} color="#24BFBF" />
-        <StatCard label="High Priority" value={counts.urgent}    icon={MessageSquare}color="#f59e0b" />
+        <StatCard label="Open"          value={counts.open}        icon={AlertCircle}  color="#ef4444" />
+        <StatCard label="In Progress"   value={counts.in_progress} icon={Clock}        color="#0D2542" />
+        <StatCard label="Unassigned"    value={counts.unassigned}  icon={UserPlus}     color="#7c3aed" />
+        <StatCard label="SLA Breached"  value={counts.breached}    icon={Timer}        color="#ef4444" />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-          <div className="relative flex-1 max-w-xs">
+        <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-slate-100">
+          <div className="relative flex-1 min-w-48 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <Input
               placeholder="Search tickets..."
@@ -189,6 +302,25 @@ export default function TicketsPage() {
               <SelectItem value="closed">Closed</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={assigneeFilter} onValueChange={(v) => v && setAssigneeFilter(v)}>
+            <SelectTrigger className="h-9 w-44 text-xs bg-slate-50 border-slate-200 rounded-xl">
+              <UserCheck className="h-3 w-3 mr-1.5" />
+              <SelectValue placeholder="Assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assignees</SelectItem>
+              <SelectItem value="me">Assigned to me</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {admins.length > 0 && (
+                <>
+                  <div className="my-1 h-px bg-slate-100" />
+                  {admins.map((a) => (
+                    <SelectItem key={a._id} value={a._id}>{adminLabel(a)}</SelectItem>
+                  ))}
+                </>
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         <Table>
@@ -198,8 +330,8 @@ export default function TicketsPage() {
               <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">User</TableHead>
               <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Priority</TableHead>
               <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Status</TableHead>
+              <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Assignee</TableHead>
               <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">SLA</TableHead>
-              <TableHead className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Created</TableHead>
               <TableHead className="w-24 text-[11px] text-slate-400 font-semibold uppercase tracking-wide">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -222,7 +354,8 @@ export default function TicketsPage() {
               )
               : filtered.map((ticket) => {
                   const StatusIcon = statusConfig[ticket.status as TicketStatus]?.icon ?? AlertCircle;
-                  const sla = slaPercent(ticket.createdAt);
+                  const sla = computeSla(ticket);
+                  const assignee = ticketAssignee(ticket);
                   return (
                     <TableRow key={ticket._id} className="border-slate-100 hover:bg-slate-50/50 transition-colors">
                       <TableCell>
@@ -254,15 +387,37 @@ export default function TicketsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 min-w-16">
-                          <div className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden">
-                            <div className={`h-full rounded-full ${slaColor(sla)}`} style={{ width: `${sla}%` }} />
+                        {assignee ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-5 w-5">
+                              <AvatarFallback className="text-[8px] bg-chart-2/15 text-chart-2">
+                                {adminInitials(assignee)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-slate-700 leading-tight truncate max-w-[110px]">{adminLabel(assignee)}</span>
                           </div>
-                          <span className="text-[10px] text-slate-400 tabular-nums w-7">{sla}%</span>
-                        </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-50 border border-slate-100 rounded-md px-1.5 py-0.5">
+                            <UserPlus className="h-2.5 w-2.5" />
+                            Unassigned
+                          </span>
+                        )}
                       </TableCell>
-                      <TableCell className="text-xs text-slate-400 tabular-nums">
-                        {new Date(ticket.createdAt).toLocaleDateString("en-SA")}
+                      <TableCell>
+                        {sla ? (
+                          <div className="flex items-center gap-2 min-w-20">
+                            <div className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden">
+                              <div className={`h-full rounded-full ${slaToneBar(sla.tone)}`} style={{ width: `${sla.pct}%` }} />
+                            </div>
+                            <span className={`text-[10px] tabular-nums w-14 leading-tight ${slaToneText(sla.tone)}`}>
+                              {sla.responded
+                                ? sla.breached ? `+${formatHours(sla.hoursAbs)}` : "On time"
+                                : sla.breached ? `−${formatHours(sla.hoursAbs)}` : formatHours(sla.hoursAbs)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-300">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg"
@@ -310,6 +465,29 @@ export default function TicketsPage() {
                   </div>
                 </div>
 
+                {/* SLA banner */}
+                {(() => {
+                  const sla = computeSla(selected);
+                  if (!sla) return null;
+                  const tone = sla.tone;
+                  const bg = tone === "ok" ? "bg-chart-3/10 border-chart-3/20"
+                          : tone === "warn" ? "bg-amber-50 border-amber-200"
+                          : "bg-destructive/10 border-destructive/20";
+                  const label = sla.responded
+                    ? sla.breached
+                      ? `Responded ${formatHours(sla.hoursAbs)} after SLA — breached`
+                      : `Responded within SLA`
+                    : sla.breached
+                      ? `Awaiting first reply — overdue by ${formatHours(sla.hoursAbs)}`
+                      : `Awaiting first reply — ${formatHours(sla.hoursAbs)} remaining`;
+                  return (
+                    <div className={`rounded-xl border px-3 py-2 flex items-center gap-2 ${bg}`}>
+                      <Timer className={`h-3.5 w-3.5 ${slaToneText(tone)}`} />
+                      <span className={`text-xs font-medium ${slaToneText(tone)}`}>{label}</span>
+                    </div>
+                  );
+                })()}
+
                 <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-sm text-slate-600">
                   {selected.description}
                 </div>
@@ -340,20 +518,43 @@ export default function TicketsPage() {
                   </div>
                 )}
 
-                {/* Status change */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Update Status</Label>
-                  <Select value={selected.status} onValueChange={(v) => v && handleStatusChange(selected._id, v)}>
-                    <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Assignment + Status row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <UserCheck className="h-3 w-3" /> Assigned to
+                    </Label>
+                    <Select
+                      value={ticketAssigneeId(selected) || "unassigned"}
+                      onValueChange={(v) => v && handleAssign(selected._id, v)}
+                      disabled={assigning}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {admins.length > 0 && <div className="my-1 h-px bg-slate-100" />}
+                        {admins.map((a) => (
+                          <SelectItem key={a._id} value={a._id}>{adminLabel(a)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Select value={selected.status} onValueChange={(v) => v && handleStatusChange(selected._id, v)}>
+                      <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </>
             )}

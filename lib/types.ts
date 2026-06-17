@@ -232,6 +232,13 @@ export interface AdminTicketMessage {
   timestamp: string;
 }
 
+export interface AdminUserRef {
+  _id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 export interface AdminTicket {
   _id: string;
   ticketNumber: string;
@@ -250,7 +257,10 @@ export interface AdminTicket {
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "resolved" | "closed";
   messages: AdminTicketMessage[];
-  assignedTo?: string;
+  // Tier 2 #10 — populated by the backend when listing tickets
+  assignedTo?: AdminUserRef | string | null;
+  responseDueAt?: string;
+  firstResponseAt?: string;
   resolvedAt?: string;
   closedAt?: string;
   createdAt: string;

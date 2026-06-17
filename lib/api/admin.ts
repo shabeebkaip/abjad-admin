@@ -11,6 +11,7 @@ import {
   AdminApplicationListResponse,
   AdminTicket,
   AdminTicketListResponse,
+  AdminUserRef,
   AdminJobListResponse,
   AdminReportsData,
   AdminReportPreview,
@@ -154,6 +155,8 @@ export async function listAdminApplications(params: {
 export interface ListTicketsParams {
   status?: string;
   priority?: string;
+  // Tier 2 #10 — "me" (resolved server-side), "unassigned", or a user ObjectId
+  assignee?: string;
   page?: number;
   limit?: number;
 }
@@ -161,10 +164,11 @@ export interface ListTicketsParams {
 export async function listAdminTickets(
   params: ListTicketsParams = {}
 ): Promise<AdminTicketListResponse> {
-  const { status, priority, page = 1, limit = 50 } = params;
+  const { status, priority, assignee, page = 1, limit = 50 } = params;
   const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (status && status !== "all") qs.set("status", status);
   if (priority) qs.set("priority", priority);
+  if (assignee && assignee !== "all") qs.set("assignee", assignee);
   const res = await api.get<AdminTicketListResponse>(`/admin/tickets?${qs}`);
   return res.data!;
 }
@@ -181,6 +185,18 @@ export async function replyToAdminTicket(ticketId: string, content: string): Pro
 
 export async function updateAdminTicketStatus(ticketId: string, status: string): Promise<AdminTicket> {
   const res = await api.patch<AdminTicket>(`/admin/tickets/${ticketId}/status`, { status });
+  return res.data!;
+}
+
+// Tier 2 #10 — assign/unassign a ticket. Pass null to unassign.
+export async function assignAdminTicket(ticketId: string, adminId: string | null): Promise<AdminTicket> {
+  const res = await api.post<AdminTicket>(`/admin/tickets/${ticketId}/assign`, { adminId });
+  return res.data!;
+}
+
+// Tier 2 #10 — admin directory for the assignment picker
+export async function listAdminUsers(): Promise<AdminUserRef[]> {
+  const res = await api.get<AdminUserRef[]>(`/admin/admins`);
   return res.data!;
 }
 
