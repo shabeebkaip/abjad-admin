@@ -27,6 +27,8 @@ import {
 } from "@/lib/api/admin";
 import type { AdminTicket, AdminUserRef } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { FilterChips, type FilterChip } from "@/components/filters/filter-chips";
+import { FilterPresets } from "@/components/filters/filter-presets";
 
 type Priority = "low" | "medium" | "high";
 type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
@@ -321,7 +323,52 @@ export default function TicketsPage() {
               )}
             </SelectContent>
           </Select>
+          <div className="ml-auto">
+            <FilterPresets
+              pageKey="tickets"
+              current={{ status: statusFilter, assignee: assigneeFilter }}
+              activeCount={(statusFilter !== "all" ? 1 : 0) + (assigneeFilter !== "all" ? 1 : 0)}
+              onApply={(f) => {
+                setStatusFilter(f.status ?? "all");
+                setAssigneeFilter(f.assignee ?? "all");
+              }}
+            />
+          </div>
         </div>
+
+        {/* Tier 2 #16 — Active filter chips */}
+        {(() => {
+          const chips: FilterChip[] = [];
+          if (statusFilter !== "all") {
+            chips.push({
+              key: `status:${statusFilter}`,
+              label: "Status",
+              value: statusConfig[statusFilter as TicketStatus]?.label ?? statusFilter,
+              onRemove: () => setStatusFilter("all"),
+            });
+          }
+          if (assigneeFilter !== "all") {
+            let value: string;
+            if (assigneeFilter === "me")             value = "Assigned to me";
+            else if (assigneeFilter === "unassigned") value = "Unassigned";
+            else {
+              const match = admins.find((a) => a._id === assigneeFilter);
+              value = match ? adminLabel(match) : "Selected admin";
+            }
+            chips.push({
+              key: `assignee:${assigneeFilter}`,
+              label: "Assignee",
+              value,
+              onRemove: () => setAssigneeFilter("all"),
+            });
+          }
+          return (
+            <FilterChips
+              chips={chips}
+              onClearAll={() => { setStatusFilter("all"); setAssigneeFilter("all"); }}
+            />
+          );
+        })()}
 
         <Table>
           <TableHeader>

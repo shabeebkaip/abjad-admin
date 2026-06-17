@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { listTeachers, approveTeacher, rejectTeacher } from "@/lib/api/admin";
 import { TeacherProfile } from "@/lib/types";
+import { FilterChips, type FilterChip } from "@/components/filters/filter-chips";
+import { FilterPresets } from "@/components/filters/filter-presets";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   approved: { label: "Approved", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -272,7 +274,29 @@ export default function TeachersPage() {
               {pending} awaiting verification
             </span>
           )}
+          <div className="ml-auto">
+            <FilterPresets
+              pageKey="users.teachers"
+              current={{ status: filter }}
+              activeCount={filter !== "all" ? 1 : 0}
+              onApply={(f) => setFilter(f.status ?? "all")}
+            />
+          </div>
         </div>
+
+        {/* Tier 2 #16 — Active filter chips */}
+        {(() => {
+          const chips: FilterChip[] = [];
+          if (filter !== "all") {
+            chips.push({
+              key: `status:${filter}`,
+              label: "Status",
+              value: statusConfig[filter]?.label ?? filter,
+              onRemove: () => setFilter("all"),
+            });
+          }
+          return <FilterChips chips={chips} onClearAll={() => setFilter("all")} />;
+        })()}
 
         {/* Tier 2 #14 — bulk action bar (shows only when selections exist) */}
         {selected.size > 0 && (
