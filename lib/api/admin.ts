@@ -350,6 +350,72 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
   return res.data!;
 }
 
+// ── Website Billing Pass — Pricing Page Content ────────────────────────────
+
+export type PricingLocale = "en" | "ar";
+export type PricingPaymentMethod = "mada" | "apple_pay" | "stcpay" | "moyasar_card" | "bank_transfer";
+
+export interface PricingPageHero {
+  eyebrow: string;
+  headline: string;
+  subheadline: string;
+  primaryCtaText: string;
+  primaryCtaHref: string;
+  secondaryCtaText: string;
+  secondaryCtaHref: string;
+  reassurance: string;
+}
+
+export interface PricingPageTrustLogo { name: string; logoUrl?: string }
+
+export interface PricingPageTrustStrip {
+  schoolCountOverride?: number;
+  teacherCountOverride?: number;
+  logos: PricingPageTrustLogo[];
+}
+
+export interface PricingPageReason { icon: string; title: string; body: string }
+
+export interface PricingPageTestimonial {
+  kind: "anchor" | "short";
+  name: string;
+  role: string;
+  school: string;
+  city?: string;
+  outcome?: string;
+  photoUrl?: string;
+  quote: string;
+}
+
+export interface PricingPageFaq { q: string; a: string }
+
+export interface PricingPageFooterLegal {
+  vatNumber: string;
+  crNumber: string;
+  address: string;
+}
+
+export interface PricingPageContent {
+  locale: PricingLocale;
+  hero: PricingPageHero;
+  trustStrip: PricingPageTrustStrip;
+  whyAbjad: PricingPageReason[];
+  testimonials: PricingPageTestimonial[];
+  faq: PricingPageFaq[];
+  paymentMethods: PricingPaymentMethod[];
+  footerLegal: PricingPageFooterLegal;
+}
+
+export async function getPricingPageContent(locale: PricingLocale): Promise<PricingPageContent> {
+  const res = await api.get<PricingPageContent>(`/admin/pricing-page?locale=${locale}`);
+  return res.data!;
+}
+
+export async function updatePricingPageContent(locale: PricingLocale, payload: Partial<Omit<PricingPageContent, "locale">>): Promise<PricingPageContent> {
+  const res = await api.patch<PricingPageContent>(`/admin/pricing-page?locale=${locale}`, payload);
+  return res.data!;
+}
+
 // ── Jobs (Content Moderation) ──────────────────────────────
 
 export async function listAdminJobs(params: { status?: string; page?: number; limit?: number } = {}): Promise<AdminJobListResponse> {

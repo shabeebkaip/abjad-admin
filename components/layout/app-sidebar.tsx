@@ -27,6 +27,7 @@ import {
   Inbox,
   Mail,
   Activity,
+  Megaphone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -96,6 +97,7 @@ const navItems: NavGroup[] = [
       { title: "Reports & Export",  href: "/reports",         icon: BarChart3 },
       { title: "Ranking & Flags",   href: "/ranking",         icon: Sliders   },
       { title: "Email Templates",   href: "/email-templates", icon: Mail      },
+      { title: "Pricing Page",      href: "/pricing-page",    icon: Megaphone },
       { title: "Configuration",     href: "/settings",        icon: Settings  },
     ],
   },
