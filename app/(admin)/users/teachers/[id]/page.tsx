@@ -31,6 +31,7 @@ import { TeacherProfile, TeacherActivity } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { SuspensionDialog } from "@/components/suspension/suspension-dialog";
 import { SuspensionHistory } from "@/components/suspension/suspension-history";
+import { DocumentReviewPanel } from "@/components/document-review/document-review-panel";
 import {
   suspendTeacher, reinstateTeacher, type SuspensionReasonCode,
 } from "@/lib/api/admin-suspension";
@@ -662,6 +663,9 @@ export default function TeacherProfilePage() {
               <TabsTrigger value="applications" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 Applications <TabCount n={activity?.applications.length} />
               </TabsTrigger>
+              <TabsTrigger value="documents" className="rounded-none pb-3 px-4 text-xs font-semibold">
+                Documents
+              </TabsTrigger>
               <TabsTrigger value="interviews" className="rounded-none pb-3 px-4 text-xs font-semibold">
                 Interviews <TabCount n={activity?.interviews.length} />
               </TabsTrigger>
@@ -700,6 +704,11 @@ export default function TeacherProfilePage() {
                   })}
                 </div>
               ) : <EmptyActivity label="No applications submitted yet" />}
+            </TabsContent>
+
+            {/* Documents — Tier 2 #9 */}
+            <TabsContent value="documents">
+              <DocumentReviewPanel audience="teacher" profileId={id} />
             </TabsContent>
 
             {/* Interviews */}

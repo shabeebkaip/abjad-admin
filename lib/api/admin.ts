@@ -254,6 +254,49 @@ export async function resetEmailTemplate(key: string) {
   await api.post(`/admin/email-templates/${key}/reset`);
 }
 
+// ── Tier 2 #9 — Per-document approval ─────────────────────────────────────
+
+export type DocReviewStatus = "pending" | "approved" | "rejected" | "missing";
+
+export interface DocumentInventoryItem {
+  key: string;
+  label: string;
+  fileUrl?: string;
+  originalName?: string;
+  uploadedAt?: string;
+  required: boolean;
+  status: DocReviewStatus;
+  reason?: string;
+  decidedAt?: string;
+  decidedBy?: string;
+}
+
+export type DocAudience = "teacher" | "school";
+
+function audienceSegment(a: DocAudience) {
+  return a === "teacher" ? "teachers" : "schools";
+}
+
+export async function listProfileDocuments(audience: DocAudience, profileId: string): Promise<DocumentInventoryItem[]> {
+  const res = await api.get<DocumentInventoryItem[]>(`/admin/${audienceSegment(audience)}/${profileId}/documents`);
+  return res.data!;
+}
+
+export async function approveDocument(audience: DocAudience, profileId: string, docKey: string): Promise<DocumentInventoryItem[]> {
+  const res = await api.post<DocumentInventoryItem[]>(`/admin/${audienceSegment(audience)}/${profileId}/documents/${encodeURIComponent(docKey)}/approve`);
+  return res.data!;
+}
+
+export async function rejectDocument(audience: DocAudience, profileId: string, docKey: string, reason: string): Promise<DocumentInventoryItem[]> {
+  const res = await api.post<DocumentInventoryItem[]>(`/admin/${audienceSegment(audience)}/${profileId}/documents/${encodeURIComponent(docKey)}/reject`, { reason });
+  return res.data!;
+}
+
+export async function resetDocumentReview(audience: DocAudience, profileId: string, docKey: string): Promise<DocumentInventoryItem[]> {
+  const res = await api.post<DocumentInventoryItem[]>(`/admin/${audienceSegment(audience)}/${profileId}/documents/${encodeURIComponent(docKey)}/reset`);
+  return res.data!;
+}
+
 // ── Jobs (Content Moderation) ──────────────────────────────
 
 export async function listAdminJobs(params: { status?: string; page?: number; limit?: number } = {}): Promise<AdminJobListResponse> {
