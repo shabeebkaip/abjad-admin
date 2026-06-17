@@ -47,41 +47,48 @@ function PlanRow({ plan, onSaved }: { plan: PricingPlan; onSaved: (p: PricingPla
   const Icon = plan.type === "school" ? Building2 : GraduationCap;
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+    <Card className="border-border/60 h-full flex flex-col">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 pb-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
             <Icon size={18} />
           </div>
-          <div>
-            <p className="font-mono text-xs text-muted-foreground">{plan.code}</p>
-            <p className="text-sm font-medium">{plan.type === "school" ? "School Plan" : "Teacher Premium"} · {plan.durationMonths}mo</p>
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] text-muted-foreground truncate">{plan.code}</p>
+            <p className="text-sm font-medium leading-snug">
+              {plan.type === "school" ? "School Plan" : "Teacher Premium"}
+              <span className="text-muted-foreground"> · {plan.durationMonths} {plan.durationMonths === 1 ? "month" : "months"}</span>
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant={active ? "default" : "secondary"}>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant={active ? "default" : "secondary"} className="text-[10px]">
             {active ? "Active" : "Inactive"}
           </Badge>
           <Switch checked={active} onCheckedChange={setActive} />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Price (SAR, excl. VAT)</label>
-            <Input
-              type="number"
-              value={priceSAR}
-              onChange={(e) => setPriceSAR(e.target.value)}
-              min={0}
-              step="0.01"
-            />
-          </div>
-          <div className="space-y-1">
+      <CardContent className="space-y-4 flex-1 flex flex-col">
+        {/* Price gets its own row so the number isn't truncated alongside the long name fields */}
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">Price (SAR, excl. VAT)</label>
+          <Input
+            type="number"
+            value={priceSAR}
+            onChange={(e) => setPriceSAR(e.target.value)}
+            min={0}
+            step="0.01"
+            className="font-mono tabular-nums"
+          />
+        </div>
+
+        {/* Bilingual names stack at md, two-up at lg+ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1.5 min-w-0">
             <label className="text-xs text-muted-foreground">Name (English)</label>
             <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5 min-w-0">
             <label className="text-xs text-muted-foreground">Name (Arabic)</label>
             <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" />
           </div>
@@ -93,9 +100,10 @@ function PlanRow({ plan, onSaved }: { plan: PricingPlan; onSaved: (p: PricingPla
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-border/60">
-          <p className="text-xs text-muted-foreground">
-            Last updated {new Date(plan.updatedAt).toLocaleDateString()} · effective from {new Date(plan.effectiveFrom).toLocaleDateString()}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-auto border-t border-border/60">
+          <p className="text-[11px] text-muted-foreground">
+            Last updated {new Date(plan.updatedAt).toLocaleDateString()}<br />
+            Effective from {new Date(plan.effectiveFrom).toLocaleDateString()}
           </p>
           <Button onClick={handleSave} disabled={!dirty || saving} size="sm">
             {saving ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Save size={14} className="mr-1.5" />}
@@ -133,7 +141,7 @@ export default function PricingPlansPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl">
+    <div className="p-6 space-y-6">
       <div className="flex items-start gap-3">
         <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
           <Tags size={20} />
@@ -185,7 +193,7 @@ export default function PricingPlansPage() {
                 <Building2 size={14} /> School Plans
                 <span className="ml-1 text-[10px] font-normal text-muted-foreground/70">{schoolPlans.length}</span>
               </h2>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {schoolPlans.map((p) => <PlanRow key={p._id} plan={p} onSaved={replacePlan} />)}
               </div>
             </section>
@@ -197,7 +205,7 @@ export default function PricingPlansPage() {
                 <GraduationCap size={14} /> Teacher Premium
                 <span className="ml-1 text-[10px] font-normal text-muted-foreground/70">{teacherPlans.length}</span>
               </h2>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {teacherPlans.map((p) => <PlanRow key={p._id} plan={p} onSaved={replacePlan} />)}
               </div>
             </section>
