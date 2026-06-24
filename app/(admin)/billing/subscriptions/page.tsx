@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { ListChecks, Download, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { listSubscriptions, type Subscription, type SubscriptionStatus, halalaToSAR } from "@/lib/api/admin-billing";
+import { SARSymbol } from "@/components/ui/sar-symbol";
 import { downloadCsv } from "@/lib/csv";
 
 const STATUSES: { value: SubscriptionStatus | "all"; label: string; color: string }[] = [
@@ -171,7 +172,7 @@ export default function SubscriptionsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm font-medium">
-                          {halalaToSAR(s.pricePerPeriodHalala)} SAR
+                          <SARSymbol />{halalaToSAR(s.pricePerPeriodHalala)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm" render={<Link href={`/billing/ledger/${s.ownerId}`} />}>

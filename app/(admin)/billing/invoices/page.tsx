@@ -23,6 +23,7 @@ import {
   listInvoices, markInvoicePaid, downloadInvoicePdf,
   type Invoice, type InvoiceStatus, halalaToSAR,
 } from "@/lib/api/admin-billing";
+import { SARSymbol } from "@/components/ui/sar-symbol";
 import { downloadCsv } from "@/lib/csv";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -200,7 +201,7 @@ export default function InvoicesPage() {
                         <TableCell className="text-xs capitalize">{i.paymentMethod?.replace(/_/g, " ") ?? "—"}</TableCell>
                         <TableCell className="text-right tabular-nums">{halalaToSAR(i.subtotalHalala)}</TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">{halalaToSAR(i.vatHalala)}</TableCell>
-                        <TableCell className="text-right tabular-nums font-semibold">{halalaToSAR(i.totalHalala)} SAR</TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold"><SARSymbol />{halalaToSAR(i.totalHalala)}</TableCell>
                         <TableCell className="text-xs">{new Date(i.issuedAt).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -303,7 +304,7 @@ function MarkPaidDialog({
         <div className="space-y-3">
           <div className="rounded-md bg-muted p-3 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Buyer</span><span>{invoice.buyerName}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{halalaToSAR(invoice.totalHalala)} SAR</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold"><SARSymbol />{halalaToSAR(invoice.totalHalala)}</span></div>
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Bank reference / transaction ID</label>

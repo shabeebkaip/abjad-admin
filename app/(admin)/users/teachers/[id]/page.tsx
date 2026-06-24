@@ -612,13 +612,13 @@ export default function TeacherProfilePage() {
               <Field
                 label="Minimum (SAR/month)"
                 value={teacher.salaryExpectations?.minMonthlySAR
-                  ? `SAR ${teacher.salaryExpectations.minMonthlySAR.toLocaleString()}`
+                  ? `﷼ ${teacher.salaryExpectations.minMonthlySAR.toLocaleString()}`
                   : undefined}
               />
               <Field
                 label="Maximum (SAR/month)"
                 value={teacher.salaryExpectations?.maxMonthlySAR
-                  ? `SAR ${teacher.salaryExpectations.maxMonthlySAR.toLocaleString()}`
+                  ? `﷼ ${teacher.salaryExpectations.maxMonthlySAR.toLocaleString()}`
                   : undefined}
               />
               {teacher.salaryExpectations?.contractTypes?.length > 0 && (

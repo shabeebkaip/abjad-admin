@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Wallet, FileDown, ArrowLeft, ArrowDown, ArrowUp } from "lucide-react";
 import { getOwnerLedger, type LedgerEntry, type LedgerEntryType, halalaToSAR } from "@/lib/api/admin-billing";
+import { SARSymbol } from "@/components/ui/sar-symbol";
 import { downloadCsv } from "@/lib/csv";
 
 const TYPE_LABELS: Record<LedgerEntryType, { label: string; color: string }> = {
@@ -91,7 +92,7 @@ export default function OwnerLedgerPage({ params }: { params: Promise<{ ownerId:
             <p className={`text-4xl font-bold tabular-nums ${balance < 0 ? "text-destructive" : "text-foreground"}`}>
               {halalaToSAR(Math.abs(balance))}
             </p>
-            <p className="text-sm text-muted-foreground">SAR</p>
+            <p className="text-sm text-muted-foreground"><SARSymbol /></p>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {balance > 0 && "Credit balance — owner has paid more than billed."}
@@ -152,10 +153,10 @@ export default function OwnerLedgerPage({ params }: { params: Promise<{ ownerId:
                           </span>
                         </TableCell>
                         <TableCell className="text-right tabular-nums font-medium">
-                          {halalaToSAR(e.amountHalala)} SAR
+                          <SARSymbol />{halalaToSAR(e.amountHalala)}
                         </TableCell>
                         <TableCell className={`text-right tabular-nums ${e.balanceHalala < 0 ? "text-destructive" : ""}`}>
-                          {halalaToSAR(e.balanceHalala)} SAR
+                          <SARSymbol />{halalaToSAR(e.balanceHalala)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-md truncate">{e.notes}</TableCell>
                       </TableRow>

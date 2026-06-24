@@ -18,6 +18,7 @@ import {
   type PricingPlan, type EntitlementRegistryEntry, type EntitlementBag,
   halalaToSAR,
 } from "@/lib/api/admin-billing";
+import { SARSymbol } from "@/components/ui/sar-symbol";
 
 // ── Card ─────────────────────────────────────────────────────────────────
 // Plan card: compact summary. Click "Edit" to open the side sheet which
@@ -59,7 +60,7 @@ function PlanCard({ plan, onClick }: { plan: PricingPlan; onClick: () => void })
 
       <div className="space-y-1 mb-4">
         <p className="text-2xl font-bold tabular-nums text-slate-900">
-          {halalaToSAR(plan.priceHalala)} <span className="text-sm font-medium text-slate-400">SAR</span>
+          <SARSymbol size={16} />{halalaToSAR(plan.priceHalala)}
         </p>
         <p className="text-[11px] text-slate-400">
           per {plan.durationMonths} {plan.durationMonths === 1 ? "month" : "months"} · excl. VAT

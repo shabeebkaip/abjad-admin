@@ -17,6 +17,7 @@ import {
   type Invoice, type Payment, type Subscription,
   halalaToSAR,
 } from "@/lib/api/admin-billing";
+import { SARSymbol } from "@/components/ui/sar-symbol";
 
 interface MonthlyRevenuePoint {
   month: string;  // YYYY-MM
@@ -106,7 +107,7 @@ export default function BillingOverviewPage() {
         <Kpi
           icon={<TrendingUp size={16} />}
           label="Total Revenue"
-          value={loading ? "—" : `${halalaToSAR(totalRevenueHalala)} SAR`}
+          value={loading ? "—" : `﷼ ${halalaToSAR(totalRevenueHalala)}`}
           hint={`${paidInvoices.length} paid invoices (recent slice)`}
         />
         <Kpi
@@ -118,7 +119,7 @@ export default function BillingOverviewPage() {
         <Kpi
           icon={<TrendingUp size={16} />}
           label="MRR (active)"
-          value={loading ? "—" : `${mrr.toFixed(0)} SAR`}
+          value={loading ? "—" : `﷼ ${mrr.toFixed(0)}`}
           hint="Sum of active subs ÷ duration"
         />
         <Kpi
@@ -154,7 +155,7 @@ export default function BillingOverviewPage() {
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
-                  formatter={(v) => [`${Number(v).toLocaleString()} SAR`, "Revenue"]}
+                  formatter={(v) => [`﷼ ${Number(v).toLocaleString()}`, "Revenue"]}
                   contentStyle={{ borderRadius: 8, fontSize: 12 }}
                 />
                 <Bar dataKey="revenueSAR" radius={[6, 6, 0, 0]} fill="hsl(var(--primary))" />
@@ -184,7 +185,7 @@ export default function BillingOverviewPage() {
                 return (
                   <li key={p._id} className="flex items-center justify-between py-2.5 text-sm">
                     <div className="min-w-0">
-                      <p className="font-medium">{halalaToSAR(p.amountHalala)} SAR · <span className="font-mono text-xs text-muted-foreground">{inv?.number ?? "—"}</span></p>
+                      <p className="font-medium"><SARSymbol />{halalaToSAR(p.amountHalala)} · <span className="font-mono text-xs text-muted-foreground">{inv?.number ?? "—"}</span></p>
                       <p className="text-xs text-muted-foreground capitalize">{p.method.replace(/_/g, " ")} · {new Date(p.createdAt).toLocaleString()}</p>
                     </div>
                     <Badge variant="default" className="bg-emerald-100 text-emerald-700">succeeded</Badge>

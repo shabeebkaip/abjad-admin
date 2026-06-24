@@ -16,6 +16,7 @@ import {
   listPayments, refundPayment,
   type Payment, type PaymentStatus, type PaymentMethod, halalaToSAR,
 } from "@/lib/api/admin-billing";
+import { SARSymbol } from "@/components/ui/sar-symbol";
 import { downloadCsv } from "@/lib/csv";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -158,7 +159,7 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell className="text-xs capitalize">{p.method.replace(/_/g, " ")}</TableCell>
                         <TableCell><Badge className={statusMeta?.color || ""}>{statusMeta?.label || p.status}</Badge></TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">{halalaToSAR(p.amountHalala)} SAR</TableCell>
+                        <TableCell className="text-right tabular-nums font-medium"><SARSymbol />{halalaToSAR(p.amountHalala)}</TableCell>
                         <TableCell className="text-xs font-mono">
                           {p.bankReference ?? p.moyasarPaymentId ?? <span className="text-muted-foreground">—</span>}
                         </TableCell>
@@ -258,7 +259,7 @@ function RefundDialog({
             Refund payment
           </DialogTitle>
           <DialogDescription>
-            Refund <span className="font-mono font-medium">{halalaToSAR(payment.amountHalala)} SAR</span>
+            Refund <span className="font-mono font-medium"><SARSymbol />{halalaToSAR(payment.amountHalala)}</span>
             {inv?.number && <> on invoice <span className="font-mono font-medium">{inv.number}</span></>}.
             {isOffPlatform ? (
               <span className="block mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
@@ -305,7 +306,7 @@ function RefundDialog({
             className="bg-amber-600 hover:bg-amber-700"
           >
             {submitting && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            Refund {halalaToSAR(payment.amountHalala)} SAR
+            Refund <SARSymbol size={11} />{halalaToSAR(payment.amountHalala)}
           </Button>
         </DialogFooter>
       </DialogContent>
