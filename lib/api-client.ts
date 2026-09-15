@@ -45,7 +45,14 @@ async function request<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
-  if (res.status === 401) {
+  // Only treat a 401 as "your session expired" when this request actually
+  // carried a token (auth !== false). The login request itself is called
+  // with auth:false and legitimately gets 401 for wrong email/password —
+  // that must surface as a normal error message, not a silent hard
+  // redirect back to /login that wipes out the error state before the
+  // login page can render it (the admin just sees the form blank out with
+  // no explanation, indistinguishable from the page being broken).
+  if (res.status === 401 && auth) {
     clearToken();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
